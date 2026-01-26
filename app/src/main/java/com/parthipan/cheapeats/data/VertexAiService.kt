@@ -1,0 +1,197 @@
+package com.parthipan.cheapeats.data
+
+import android.content.Context
+import com.google.auth.oauth2.GoogleCredentials
+import com.google.gson.Gson
+import com.google.gson.annotations.SerializedName
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import okhttp3.MediaType.Companion.toMediaType
+import okhttp3.OkHttpClient
+import okhttp3.Request
+import okhttp3.RequestBody.Companion.toRequestBody
+import java.util.concurrent.TimeUnit
+
+class VertexAiService(context: Context) {
+
+    private val projectId = "project-90e82d65-ab87-4f3a-83c"
+    private val location = "us-central1"
+    private val modelId = "gemini-1.5-flash-001"
+
+    private val credentials: GoogleCredentials by lazy {
+        context.assets.open("project-90e82d65-ab87-4f3a-83c-20574965fed9.json").use { stream ->
+            GoogleCredentials.fromStream(stream)
+                .createScoped(listOf("https://www.googleapis.com/auth/cloud-platform"))
+        }
+    }
+
+    private val httpClient = OkHttpClient.Builder()
+        .connectTimeout(30, TimeUnit.SECONDS)
+        .readTimeout(60, TimeUnit.SECONDS)
+        .build()
+
+    private val gson = Gson()
+
+    private val endpoint: String
+        get() = "https://$location-aiplatform.googleapis.com/v1/projects/$projectId/locations/$location/publishers/google/models/$modelId:generateContent"
+
+    private fun getAccessToken(): String {
+        credentials.refreshIfExpired()
+        return credentials.accessToken.tokenValue
+    }
+
+    suspend fun generateContent(prompt: String): String = withContext(Dispatchers.IO) {
+        try {
+            val requestBody = VertexRequest(
+                contents = listOf(
+                    Content(
+                        role = "user",
+                        parts = listOf(Part(text = prompt))
+                    )
+                ),
+                generationConfig = GenerationConfig(
+                    temperature = 0.7f,
+                    topK = 40,
+                    topP = 0.95f,
+                    maxOutputTokens = 1024
+                )
+            )
+
+            val jsonBody = gson.toJson(requestBody)
+            val token = getAccessToken()
+
+            val request = Request.Builder()
+                .url(endpoint)
+                .addHeader("Authorization", "Bearer $token")
+                .addHeader("Content-Type", "application/json")
+                .post(jsonBody.toRequestBody("application/json".toMediaType()))
+                .build()
+
+            val response = httpClient.newCall(request).execute()
+            val responseBody = response.body?.string() ?: ""
+
+            if (!response.isSuccessful) {
+                throw Exception("API call failed: ${response.code} - $responseBody")
+            }
+
+            val vertexResponse = gson.fromJson(responseBody, VertexResponse::class.java)
+            vertexResponse.candidates?.firstOrNull()?.content?.parts?.firstOrNull()?.text ?: ""
+        } catch (e: Exception) {
+            e.printStackTrace()
+            throw e
+        }
+    }
+
+    suspend fun getSearchSuggestions(
+        query: String,
+        restaurants: List<Restaurant>
+    ): List<Restaurant> = withContext(Dispatchers.IO) {
+        if (query.isBlank()) return@withContext restaurants
+
+        try {
+            val restaurantInfo = restaurants.joinToString("\n") { r ->
+                "${r.id}|${r.name}|${r.cuisine}|${r.priceLevel}|${r.rating}"
+            }
+
+            val prompt = """
+                You are a restaurant search assistant. Given the user's search query and a list of restaurants,
+                return the IDs of the most relevant restaurants in order of relevance.
+
+                User query: "$query"
+
+                Available restaurants (format: id|name|cuisine|priceLevel|rating):
+                $restaurantInfo
+
+                Return ONLY a comma-separated list of restaurant IDs that match the query, ordered by relevance.
+                Consider:
+                - Name matches
+                - Cuisine type matches
+                - Price level if mentioned ($ = 1, $$ = 2, $$$ = 3)
+                - Semantic understanding (e.g., "cheap" means low price, "highly rated" means high rating)
+
+                If no restaurants match, return "NONE".
+                Response format: id1,id2,id3 (no spaces, no explanations)
+            """.trimIndent()
+
+            val resultText = generateContent(prompt).trim()
+
+            if (resultText == "NONE" || resultText.isBlank()) {
+                return@withContext emptyList()
+            }
+
+            val matchedIds = resultText.split(",").map { it.trim() }
+            val restaurantMap = restaurants.associateBy { it.id }
+
+            matchedIds.mapNotNull { id -> restaurantMap[id] }
+        } catch (e: Exception) {
+            e.printStackTrace()
+            // Fallback to basic search on error
+            restaurants.filter { restaurant ->
+                restaurant.name.contains(query, ignoreCase = true) ||
+                        restaurant.cuisine.contains(query, ignoreCase = true)
+            }
+        }
+    }
+
+    suspend fun getRestaurantRecommendation(
+        preferences: String,
+        restaurants: List<Restaurant>
+    ): String = withContext(Dispatchers.IO) {
+        try {
+            val restaurantInfo = restaurants.joinToString("\n") { r ->
+                "- ${r.name}: ${r.cuisine} cuisine, ${"$".repeat(r.priceLevel)} price, ${r.rating} rating, ${r.distance} mi away"
+            }
+
+            val prompt = """
+                You are a friendly food recommendation assistant for CheapEats app.
+
+                User preferences: "$preferences"
+
+                Available restaurants:
+                $restaurantInfo
+
+                Give a brief, friendly recommendation (2-3 sentences max) for which restaurant(s)
+                would best match their preferences. Be conversational and helpful.
+            """.trimIndent()
+
+            generateContent(prompt).trim()
+        } catch (e: Exception) {
+            e.printStackTrace()
+            "I'm having trouble connecting right now. Try searching by cuisine or price!"
+        }
+    }
+}
+
+// Request/Response data classes
+data class VertexRequest(
+    val contents: List<Content>,
+    val generationConfig: GenerationConfig
+)
+
+data class Content(
+    val role: String,
+    val parts: List<Part>
+)
+
+data class Part(
+    val text: String
+)
+
+data class GenerationConfig(
+    val temperature: Float,
+    val topK: Int,
+    val topP: Float,
+    val maxOutputTokens: Int
+)
+
+data class VertexResponse(
+    val candidates: List<Candidate>?
+)
+
+data class Candidate(
+    val content: ResponseContent?
+)
+
+data class ResponseContent(
+    val parts: List<Part>?
+)
