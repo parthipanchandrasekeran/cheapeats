@@ -86,6 +86,11 @@ class PlacesService(context: Context, private val apiKey: String) {
                     )
                 } else 0f
 
+                val restaurantLatLng = LatLng(
+                    placeLocation?.latitude ?: location.latitude,
+                    placeLocation?.longitude ?: location.longitude
+                )
+
                 Restaurant(
                     id = place.id ?: "place_${place.displayName?.text.hashCode()}",
                     name = place.displayName?.text ?: "Unknown Restaurant",
@@ -97,11 +102,11 @@ class PlacesService(context: Context, private val apiKey: String) {
                         "https://places.googleapis.com/v1/${photo.name}/media?maxWidthPx=400&key=$apiKey"
                     },
                     address = place.formattedAddress ?: "",
-                    location = LatLng(
-                        placeLocation?.latitude ?: location.latitude,
-                        placeLocation?.longitude ?: location.longitude
-                    ),
-                    isSponsored = false // Real places are not sponsored by default
+                    location = restaurantLatLng,
+                    isSponsored = false,
+                    hasStudentDiscount = false, // Would need external data source
+                    nearTTC = TransitHelper.isTransitAccessible(restaurantLatLng),
+                    averagePrice = estimateAveragePrice(parsePriceLevel(place.priceLevel))
                 )
             } ?: emptyList()
 
@@ -121,6 +126,20 @@ class PlacesService(context: Context, private val apiKey: String) {
             "PRICE_LEVEL_EXPENSIVE" -> 3
             "PRICE_LEVEL_VERY_EXPENSIVE" -> 4
             else -> 1
+        }
+    }
+
+    /**
+     * Estimates average meal price based on Google's price level
+     */
+    private fun estimateAveragePrice(priceLevel: Int): Float {
+        return when (priceLevel) {
+            0 -> 0f      // Free
+            1 -> 12f     // $ - Under $15
+            2 -> 22f     // $$ - $15-30
+            3 -> 40f     // $$$ - $30-50
+            4 -> 65f     // $$$$ - $50+
+            else -> 15f
         }
     }
 
