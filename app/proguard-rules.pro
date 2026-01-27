@@ -81,3 +81,8 @@
 -keep class com.parthipan.cheapeats.data.NewPlacePhoto { *; }
 -keep class com.parthipan.cheapeats.data.OpeningHours { *; }
 -keep class com.parthipan.cheapeats.data.CurrentOpeningHours { *; }
+-keep class com.parthipan.cheapeats.data.TipProduct { *; }
+
+# ==================== Google Play Billing ====================
+-keep class com.android.billingclient.** { *; }
+-dontwarn com.android.billingclient.**

@@ -1,5 +1,6 @@
 package com.parthipan.cheapeats.ui.home
 
+import android.app.Activity
 import android.Manifest
 import android.annotation.SuppressLint
 import android.content.Context
@@ -23,16 +24,22 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.List
+import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.LocationOn
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Star
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SearchBar
 import androidx.compose.material3.SearchBarDefaults
@@ -42,9 +49,11 @@ import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.SuggestionChip
 import androidx.compose.material3.SuggestionChipDefaults
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.derivedStateOf
@@ -68,8 +77,11 @@ import com.google.android.gms.location.LocationServices
 import com.google.android.gms.location.Priority
 import com.google.android.gms.maps.model.LatLng
 import com.google.android.gms.tasks.CancellationTokenSource
+import com.parthipan.cheapeats.data.BillingService
 import com.parthipan.cheapeats.data.PlacesService
+import com.parthipan.cheapeats.data.PurchaseState
 import com.parthipan.cheapeats.data.Restaurant
+import com.parthipan.cheapeats.data.TipProduct
 import com.parthipan.cheapeats.data.TransitHelper
 import com.parthipan.cheapeats.data.VertexAiService
 import com.parthipan.cheapeats.data.sampleRestaurants
@@ -115,6 +127,42 @@ fun HomeScreen(
 
     // Navigation state for restaurant detail
     var selectedRestaurant by remember { mutableStateOf<Restaurant?>(null) }
+
+    // Menu and tip dialog state
+    var showMenu by remember { mutableStateOf(false) }
+    var showTipDialog by remember { mutableStateOf(false) }
+
+    // Billing service
+    val billingService = remember { BillingService(context) }
+    val tipProducts by billingService.tipProducts.collectAsState()
+    val purchaseState by billingService.purchaseState.collectAsState()
+
+    // Initialize billing on start
+    DisposableEffect(Unit) {
+        billingService.initialize()
+        onDispose {
+            billingService.disconnect()
+        }
+    }
+
+    // Handle purchase state changes
+    LaunchedEffect(purchaseState) {
+        when (purchaseState) {
+            is PurchaseState.Success -> {
+                snackbarHostState.showSnackbar("Thank you for your support!")
+                showTipDialog = false
+                billingService.resetPurchaseState()
+            }
+            is PurchaseState.Cancelled -> {
+                billingService.resetPurchaseState()
+            }
+            is PurchaseState.Error -> {
+                snackbarHostState.showSnackbar("Purchase failed. Please try again.")
+                billingService.resetPurchaseState()
+            }
+            else -> {}
+        }
+    }
 
 
     // Collect filter state
@@ -283,6 +331,33 @@ fun HomeScreen(
                             }
                         )
                     }
+                    Box {
+                        IconButton(onClick = { showMenu = true }) {
+                            Icon(
+                                imageVector = Icons.Default.MoreVert,
+                                contentDescription = "Menu"
+                            )
+                        }
+                        DropdownMenu(
+                            expanded = showMenu,
+                            onDismissRequest = { showMenu = false }
+                        ) {
+                            DropdownMenuItem(
+                                text = { Text("Thank the Developer") },
+                                onClick = {
+                                    showMenu = false
+                                    showTipDialog = true
+                                },
+                                leadingIcon = {
+                                    Icon(
+                                        imageVector = Icons.Default.Favorite,
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.primary
+                                    )
+                                }
+                            )
+                        }
+                    }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.primary,
@@ -449,6 +524,113 @@ fun HomeScreen(
             }
         }
     }
+
+    // Tip Dialog
+    if (showTipDialog) {
+        TipDialog(
+            tipProducts = tipProducts,
+            isLoading = purchaseState is PurchaseState.Processing,
+            onTipSelected = { product ->
+                (context as? Activity)?.let { activity ->
+                    billingService.launchPurchaseFlow(activity, product)
+                }
+            },
+            onDismiss = { showTipDialog = false }
+        )
+    }
+}
+
+@Composable
+fun TipDialog(
+    tipProducts: List<TipProduct>,
+    isLoading: Boolean,
+    onTipSelected: (TipProduct) -> Unit,
+    onDismiss: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        icon = {
+            Icon(
+                imageVector = Icons.Default.Favorite,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.size(48.dp)
+            )
+        },
+        title = {
+            Text(
+                text = "Thank the Developer",
+                textAlign = TextAlign.Center
+            )
+        },
+        text = {
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                Text(
+                    text = "If you enjoy CheapEats, consider leaving a tip to support future development!",
+                    style = MaterialTheme.typography.bodyMedium,
+                    textAlign = TextAlign.Center
+                )
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                if (tipProducts.isEmpty()) {
+                    if (isLoading) {
+                        CircularProgressIndicator(modifier = Modifier.size(24.dp))
+                    } else {
+                        Text(
+                            text = "Tips not available yet.\nPlease try again later.",
+                            style = MaterialTheme.typography.bodySmall,
+                            textAlign = TextAlign.Center,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                } else {
+                    tipProducts.forEach { product ->
+                        OutlinedButton(
+                            onClick = { onTipSelected(product) },
+                            enabled = !isLoading,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(product.name)
+                                Text(
+                                    text = product.formattedPrice,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+                        }
+                    }
+                }
+
+                if (isLoading) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        CircularProgressIndicator(modifier = Modifier.size(16.dp))
+                        Text(
+                            text = "Processing...",
+                            style = MaterialTheme.typography.bodySmall
+                        )
+                    }
+                }
+            }
+        },
+        confirmButton = {},
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Maybe Later")
+            }
+        }
+    )
 }
 
 @SuppressLint("MissingPermission")
