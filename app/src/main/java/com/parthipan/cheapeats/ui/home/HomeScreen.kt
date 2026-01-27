@@ -165,10 +165,10 @@ fun HomeScreen(
             isLoadingRestaurants = true
             locationError = null
             try {
-                // TODO: TESTING - Using Brantford Costco location. Remove for production!
-                // Brantford Costco: 25 Holiday Dr, Brantford, ON N3R 7J4
-                val testLatitude = 43.1394
-                val testLongitude = -80.2644
+                // TODO: TESTING - Using Toronto downtown location. Remove for production!
+                // Downtown Toronto near Dundas Station
+                val testLatitude = 43.6561
+                val testLongitude = -79.3802
                 val useTestLocation = false // Set to true for test location
 
                 val location = if (useTestLocation) null else getCurrentLocation(context)
