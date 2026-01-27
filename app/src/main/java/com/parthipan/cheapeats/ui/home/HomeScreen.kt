@@ -169,7 +169,7 @@ fun HomeScreen(
                 // Brantford Costco: 25 Holiday Dr, Brantford, ON N3R 7J4
                 val testLatitude = 43.1394
                 val testLongitude = -80.2644
-                val useTestLocation = true // Set to false to use real GPS location
+                val useTestLocation = false // Set to true for test location
 
                 val location = if (useTestLocation) null else getCurrentLocation(context)
                 val finalLatitude = location?.latitude ?: testLatitude
