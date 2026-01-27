@@ -165,26 +165,29 @@ fun HomeScreen(
             isLoadingRestaurants = true
             locationError = null
             try {
-                val location = getCurrentLocation(context)
-                if (location != null) {
-                    userLocation = LatLng(location.latitude, location.longitude)
+                // TODO: TESTING - Using Brantford Costco location. Remove for production!
+                // Brantford Costco: 25 Holiday Dr, Brantford, ON N3R 7J4
+                val testLatitude = 43.1394
+                val testLongitude = -80.2644
+                val useTestLocation = true // Set to false to use real GPS location
 
-                    // Check if user is in Toronto area for TTC filter
-                    isInTorontoArea = TransitHelper.isInTorontoArea(location.latitude, location.longitude)
+                val location = if (useTestLocation) null else getCurrentLocation(context)
+                val finalLatitude = location?.latitude ?: testLatitude
+                val finalLongitude = location?.longitude ?: testLongitude
 
-                    // Fetch real restaurants if PlacesService available
-                    if (placesService != null) {
-                        val nearbyRestaurants = placesService.searchNearbyRestaurants(
-                            LatLng(location.latitude, location.longitude)
-                        )
-                        restaurants = nearbyRestaurants.ifEmpty { sampleRestaurants }
-                        searchFilteredRestaurants = restaurants
-                    } else {
-                        restaurants = sampleRestaurants
-                        searchFilteredRestaurants = restaurants
-                    }
+                userLocation = LatLng(finalLatitude, finalLongitude)
+
+                // Check if user is in Toronto area for TTC filter
+                isInTorontoArea = TransitHelper.isInTorontoArea(finalLatitude, finalLongitude)
+
+                // Fetch real restaurants if PlacesService available
+                if (placesService != null) {
+                    val nearbyRestaurants = placesService.searchNearbyRestaurants(
+                        LatLng(finalLatitude, finalLongitude)
+                    )
+                    restaurants = nearbyRestaurants.ifEmpty { sampleRestaurants }
+                    searchFilteredRestaurants = restaurants
                 } else {
-                    locationError = "Could not get your location"
                     restaurants = sampleRestaurants
                     searchFilteredRestaurants = restaurants
                 }
@@ -486,6 +489,7 @@ fun HomeScreen(
                 ViewMode.MAP -> {
                     MapScreen(
                         restaurants = displayedRestaurants,
+                        userLocation = userLocation,
                         modifier = Modifier.fillMaxSize()
                     )
                 }

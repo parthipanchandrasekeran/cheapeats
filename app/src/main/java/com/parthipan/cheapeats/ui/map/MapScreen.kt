@@ -1,14 +1,12 @@
 package com.parthipan.cheapeats.ui.map
 
 import android.Manifest
-import android.annotation.SuppressLint
 import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
 import android.graphics.Typeface
-import android.location.Location
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -35,8 +33,6 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import com.google.accompanist.permissions.ExperimentalPermissionsApi
 import com.google.accompanist.permissions.rememberMultiplePermissionsState
-import com.google.android.gms.location.LocationServices
-import com.google.android.gms.location.Priority
 import com.google.android.gms.maps.CameraUpdateFactory
 import com.google.android.gms.maps.GoogleMap
 import com.google.android.gms.maps.model.BitmapDescriptor
@@ -44,7 +40,6 @@ import com.google.android.gms.maps.model.BitmapDescriptorFactory
 import com.google.android.gms.maps.model.CameraPosition
 import com.google.android.gms.maps.model.LatLng
 import com.google.android.gms.maps.model.MarkerOptions
-import com.google.android.gms.tasks.CancellationTokenSource
 import com.google.maps.android.clustering.Cluster
 import com.google.maps.android.clustering.ClusterItem
 import com.google.maps.android.clustering.ClusterManager
@@ -56,7 +51,6 @@ import com.google.maps.android.compose.MapsComposeExperimentalApi
 import com.google.maps.android.compose.rememberCameraPositionState
 import com.parthipan.cheapeats.data.Restaurant
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.tasks.await
 
 /**
  * ClusterItem wrapper for Restaurant data
@@ -151,11 +145,11 @@ class RestaurantClusterRenderer(
 @Composable
 fun MapScreen(
     restaurants: List<Restaurant>,
+    userLocation: LatLng? = null,
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
-    var userLocation by remember { mutableStateOf<LatLng?>(null) }
     var clusterManager by remember { mutableStateOf<ClusterManager<RestaurantClusterItem>?>(null) }
 
     val locationPermissions = rememberMultiplePermissionsState(
@@ -165,11 +159,12 @@ fun MapScreen(
         )
     )
 
-    // Default to Toronto if no location
+    // Default to Toronto if no location provided
     val defaultLocation = LatLng(43.7615, -79.3456)
+    val mapCenter = userLocation ?: defaultLocation
 
     val cameraPositionState = rememberCameraPositionState {
-        position = CameraPosition.fromLatLngZoom(defaultLocation, 14f)
+        position = CameraPosition.fromLatLngZoom(mapCenter, 14f)
     }
 
     // Request permissions when screen loads
@@ -179,17 +174,12 @@ fun MapScreen(
         }
     }
 
-    // Get user location when permissions are granted
-    LaunchedEffect(locationPermissions.allPermissionsGranted) {
-        if (locationPermissions.allPermissionsGranted) {
-            val location = getCurrentLocation(context)
-            location?.let {
-                val latLng = LatLng(it.latitude, it.longitude)
-                userLocation = latLng
-                cameraPositionState.animate(
-                    CameraUpdateFactory.newLatLngZoom(latLng, 15f)
-                )
-            }
+    // Center map on user location when it changes
+    LaunchedEffect(userLocation) {
+        userLocation?.let { location ->
+            cameraPositionState.animate(
+                CameraUpdateFactory.newLatLngZoom(location, 15f)
+            )
         }
     }
 
@@ -330,18 +320,3 @@ fun MapScreen(
     }
 }
 
-@SuppressLint("MissingPermission")
-private suspend fun getCurrentLocation(context: Context): Location? {
-    return try {
-        val fusedLocationClient = LocationServices.getFusedLocationProviderClient(context)
-        val cancellationToken = CancellationTokenSource()
-
-        fusedLocationClient.getCurrentLocation(
-            Priority.PRIORITY_HIGH_ACCURACY,
-            cancellationToken.token
-        ).await()
-    } catch (e: Exception) {
-        e.printStackTrace()
-        null
-    }
-}
