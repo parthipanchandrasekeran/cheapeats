@@ -20,6 +20,36 @@ import java.util.concurrent.TimeUnit
 
 class VertexAiService(private val context: Context) {
 
+    companion object {
+        /**
+         * System prompt defining the AI assistant's behavior within CheapEats
+         */
+        private const val SYSTEM_PROMPT = """
+You are the AI assistant inside the CheapEats Android app, built for Toronto users.
+
+Your job is to help users quickly decide where and what to eat for under $15 CAD.
+
+Context you should always assume:
+- City is Toronto
+- Users care about price, distance, and TTC convenience
+- The app already provides live restaurant data, distances, and prices
+- You must NOT invent or guess missing data
+
+What you should do automatically, without asking questions:
+- Understand the user's search intent (for example: "cheap Mexican food")
+- Focus on food that is filling, practical, and good value
+- Prioritize places that are open now, under $15, and close to TTC stations
+- Rank restaurants by best overall value and convenience
+
+For each restaurant shown in the app:
+- Pick the best item to order under $15
+- Write one short, practical line explaining why this place is a good choice
+- Add a brief TTC-related note if the walk is convenient
+- Keep explanations short, human, and Toronto-local
+- Do not use hype, emojis, or marketing language
+"""
+    }
+
     private val projectId = "project-90e82d65-ab87-4f3a-83c"
     private val location = "us-central1"
     private val modelId = "gemini-1.5-flash-001"
@@ -100,24 +130,27 @@ class VertexAiService(private val context: Context) {
 
         try {
             val restaurantInfo = restaurants.joinToString("\n") { r ->
-                "${r.id}|${r.name}|${r.cuisine}|${r.priceLevel}|${r.rating}"
+                "${r.id}|${r.name}|${r.cuisine}|${r.priceLevel}|${r.rating}|${String.format("%.1f", r.distance)}|${r.nearTTC}"
             }
 
             val prompt = """
-                You are a restaurant search assistant. Given the user's search query and a list of restaurants,
+                $SYSTEM_PROMPT
+
+                TASK: Given the user's search query and a list of restaurants,
                 return the IDs of the most relevant restaurants in order of relevance.
 
                 User query: "$query"
 
-                Available restaurants (format: id|name|cuisine|priceLevel|rating):
+                Available restaurants (format: id|name|cuisine|priceLevel|rating|distance_mi|nearTTC):
                 $restaurantInfo
 
                 Return ONLY a comma-separated list of restaurant IDs that match the query, ordered by relevance.
                 Consider:
                 - Name matches
                 - Cuisine type matches
-                - Price level if mentioned ($ = 1, $$ = 2, $$$ = 3)
-                - Semantic understanding (e.g., "cheap" means low price, "highly rated" means high rating)
+                - Price level ($ = 1 = under $15, $$ = 2, $$$ = 3)
+                - TTC proximity for convenience
+                - Semantic understanding (e.g., "cheap" means low price, "quick" means nearby)
 
                 If no restaurants match, return "NONE".
                 Response format: id1,id2,id3 (no spaces, no explanations)
@@ -149,19 +182,23 @@ class VertexAiService(private val context: Context) {
     ): String = withContext(Dispatchers.IO) {
         try {
             val restaurantInfo = restaurants.joinToString("\n") { r ->
-                "- ${r.name}: ${r.cuisine} cuisine, ${"$".repeat(r.priceLevel)} price, ${r.rating} rating, ${r.distance} mi away"
+                val ttcNote = if (r.nearTTC) {
+                    r.nearestStation?.let { ", near $it station" } ?: ", near TTC"
+                } else ""
+                val priceNote = r.averagePrice?.let { " (~$${it.toInt()})" } ?: ""
+                "- ${r.name}: ${r.cuisine}$priceNote, ${r.rating} stars, ${String.format("%.1f", r.distance)} mi$ttcNote"
             }
 
             val prompt = """
-                You are a friendly food recommendation assistant for CheapEats app.
+                $SYSTEM_PROMPT
 
-                User preferences: "$preferences"
+                User is looking for: "$preferences"
 
                 Available restaurants:
                 $restaurantInfo
 
-                Give a brief, friendly recommendation (2-3 sentences max) for which restaurant(s)
-                would best match their preferences. Be conversational and helpful.
+                Give a brief, practical recommendation (2-3 sentences max). Focus on value and convenience.
+                Mention TTC accessibility if relevant. No hype or marketing language.
             """.trimIndent()
 
             generateContent(prompt).trim()
