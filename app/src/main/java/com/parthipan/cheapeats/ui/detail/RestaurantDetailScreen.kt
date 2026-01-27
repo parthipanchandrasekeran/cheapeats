@@ -49,6 +49,8 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import coil.compose.SubcomposeAsyncImage
+import coil.request.ImageRequest
 import com.parthipan.cheapeats.data.DataFreshness
 import com.parthipan.cheapeats.data.Dish
 import com.parthipan.cheapeats.data.Restaurant
@@ -291,6 +293,8 @@ private fun RestaurantInfoHeader(restaurant: Restaurant) {
 
 @Composable
 private fun DishCard(dish: Dish) {
+    val context = LocalContext.current
+
     Card(
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(
@@ -304,7 +308,7 @@ private fun DishCard(dish: Dish) {
                 .padding(16.dp),
             verticalAlignment = Alignment.Top
         ) {
-            // Dish icon/placeholder
+            // Dish image with letter fallback
             Box(
                 modifier = Modifier
                     .size(56.dp)
@@ -312,12 +316,28 @@ private fun DishCard(dish: Dish) {
                     .background(MaterialTheme.colorScheme.primaryContainer),
                 contentAlignment = Alignment.Center
             ) {
-                Text(
-                    text = dish.name.take(1).uppercase(),
-                    style = MaterialTheme.typography.headlineSmall,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onPrimaryContainer
-                )
+                if (dish.imageUrl != null) {
+                    SubcomposeAsyncImage(
+                        model = ImageRequest.Builder(context)
+                            .data(dish.imageUrl)
+                            .crossfade(200)
+                            .build(),
+                        contentDescription = dish.name,
+                        contentScale = androidx.compose.ui.layout.ContentScale.Crop,
+                        modifier = Modifier.fillMaxSize(),
+                        loading = {
+                            // Show letter while loading
+                            DishLetterPlaceholder(dish.name)
+                        },
+                        error = {
+                            // Fallback to letter on error
+                            DishLetterPlaceholder(dish.name)
+                        }
+                    )
+                } else {
+                    // No image URL, show letter placeholder
+                    DishLetterPlaceholder(dish.name)
+                }
             }
 
             Spacer(modifier = Modifier.width(12.dp))
@@ -478,4 +498,17 @@ private fun EmptyDishesState(showUnder15Only: Boolean) {
             )
         }
     }
+}
+
+/**
+ * Letter placeholder for dishes without images or when image fails to load.
+ */
+@Composable
+private fun DishLetterPlaceholder(dishName: String) {
+    Text(
+        text = dishName.take(1).uppercase(),
+        style = MaterialTheme.typography.headlineSmall,
+        fontWeight = FontWeight.Bold,
+        color = MaterialTheme.colorScheme.onPrimaryContainer
+    )
 }

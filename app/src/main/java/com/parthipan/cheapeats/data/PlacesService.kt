@@ -137,6 +137,13 @@ class PlacesService(context: Context, private val apiKey: String) {
                     else -> DataFreshness.UNKNOWN
                 }
 
+                // Determine price source - ESTIMATED since we calculate from priceLevel
+                val priceSource = if (place.priceLevel != null) {
+                    PriceSource.ESTIMATED
+                } else {
+                    PriceSource.UNKNOWN
+                }
+
                 Restaurant(
                     id = place.id ?: "place_${place.displayName?.text.hashCode()}",
                     name = place.displayName?.text ?: "Unknown Restaurant",
@@ -153,6 +160,7 @@ class PlacesService(context: Context, private val apiKey: String) {
                     hasStudentDiscount = false, // Would need external data source
                     nearTTC = TransitHelper.isTransitAccessible(restaurantLatLng),
                     averagePrice = estimateAveragePrice(parsePriceLevel(place.priceLevel)),
+                    priceSource = priceSource,
                     websiteUrl = place.websiteUri,
                     googleMapsUrl = place.googleMapsUri,
                     isOpenNow = isOpenNow,

@@ -24,10 +24,37 @@ class RestaurantTest {
         nearTTC: Boolean = false,
         averagePrice: Float? = null,
         websiteUrl: String? = null,
-        googleMapsUrl: String? = null
+        googleMapsUrl: String? = null,
+        isOpenNow: Boolean? = null,
+        openingHours: String? = null,
+        ttcWalkMinutes: Int? = null,
+        nearestStation: String? = null,
+        dataFreshness: DataFreshness = DataFreshness.UNKNOWN,
+        lastVerified: Long? = null,
+        isFavorite: Boolean = false
     ) = Restaurant(
-        id, name, cuisine, priceLevel, rating, distance, imageUrl, address,
-        location, isSponsored, hasStudentDiscount, nearTTC, averagePrice, websiteUrl, googleMapsUrl
+        id = id,
+        name = name,
+        cuisine = cuisine,
+        priceLevel = priceLevel,
+        rating = rating,
+        distance = distance,
+        imageUrl = imageUrl,
+        address = address,
+        location = location,
+        isSponsored = isSponsored,
+        hasStudentDiscount = hasStudentDiscount,
+        nearTTC = nearTTC,
+        averagePrice = averagePrice,
+        websiteUrl = websiteUrl,
+        googleMapsUrl = googleMapsUrl,
+        isOpenNow = isOpenNow,
+        openingHours = openingHours,
+        ttcWalkMinutes = ttcWalkMinutes,
+        nearestStation = nearestStation,
+        dataFreshness = dataFreshness,
+        lastVerified = lastVerified,
+        isFavorite = isFavorite
     )
 
     // ==================== pricePoint Tests ====================
@@ -176,5 +203,102 @@ class RestaurantTest {
         assertNull(restaurant.averagePrice)
         assertNull(restaurant.websiteUrl)
         assertNull(restaurant.googleMapsUrl)
+        assertFalse(restaurant.isFavorite)
+        assertEquals(DataFreshness.UNKNOWN, restaurant.dataFreshness)
+    }
+
+    // ==================== Favorite Tests ====================
+
+    @Test
+    fun `isFavorite defaults to false`() {
+        val restaurant = createRestaurant()
+        assertFalse(restaurant.isFavorite)
+    }
+
+    @Test
+    fun `isFavorite can be set to true`() {
+        val restaurant = createRestaurant(isFavorite = true)
+        assertTrue(restaurant.isFavorite)
+    }
+
+    @Test
+    fun `restaurant copy preserves isFavorite`() {
+        val original = createRestaurant(isFavorite = true)
+        val copy = original.copy(name = "New Name")
+        assertTrue(copy.isFavorite)
+    }
+
+    @Test
+    fun `restaurant copy can change isFavorite`() {
+        val original = createRestaurant(isFavorite = false)
+        val copy = original.copy(isFavorite = true)
+        assertTrue(copy.isFavorite)
+        assertFalse(original.isFavorite)
+    }
+
+    // ==================== Data Freshness Tests ====================
+
+    @Test
+    fun `dataFreshness defaults to UNKNOWN`() {
+        val restaurant = createRestaurant()
+        assertEquals(DataFreshness.UNKNOWN, restaurant.dataFreshness)
+    }
+
+    @Test
+    fun `dataFreshness can be set to LIVE`() {
+        val restaurant = createRestaurant(dataFreshness = DataFreshness.LIVE)
+        assertEquals(DataFreshness.LIVE, restaurant.dataFreshness)
+    }
+
+    @Test
+    fun `dataFreshness can be set to RECENT`() {
+        val restaurant = createRestaurant(dataFreshness = DataFreshness.RECENT)
+        assertEquals(DataFreshness.RECENT, restaurant.dataFreshness)
+    }
+
+    @Test
+    fun `dataFreshness can be set to CACHED`() {
+        val restaurant = createRestaurant(dataFreshness = DataFreshness.CACHED)
+        assertEquals(DataFreshness.CACHED, restaurant.dataFreshness)
+    }
+
+    // ==================== Open Status Tests ====================
+
+    @Test
+    fun `isOpenNow defaults to null`() {
+        val restaurant = createRestaurant()
+        assertNull(restaurant.isOpenNow)
+    }
+
+    @Test
+    fun `isOpenNow can be true`() {
+        val restaurant = createRestaurant(isOpenNow = true)
+        assertTrue(restaurant.isOpenNow!!)
+    }
+
+    @Test
+    fun `isOpenNow can be false`() {
+        val restaurant = createRestaurant(isOpenNow = false)
+        assertFalse(restaurant.isOpenNow!!)
+    }
+
+    // ==================== TTC Walk Minutes Tests ====================
+
+    @Test
+    fun `ttcWalkMinutes defaults to null`() {
+        val restaurant = createRestaurant()
+        assertNull(restaurant.ttcWalkMinutes)
+    }
+
+    @Test
+    fun `ttcWalkMinutes stores correct value`() {
+        val restaurant = createRestaurant(ttcWalkMinutes = 5)
+        assertEquals(5, restaurant.ttcWalkMinutes)
+    }
+
+    @Test
+    fun `nearestStation stores correct value`() {
+        val restaurant = createRestaurant(nearestStation = "Union")
+        assertEquals("Union", restaurant.nearestStation)
     }
 }

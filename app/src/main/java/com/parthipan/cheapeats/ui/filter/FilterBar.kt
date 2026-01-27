@@ -1,7 +1,10 @@
 package com.parthipan.cheapeats.ui.filter
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -10,8 +13,12 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ArrowDropDown
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.Done
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
@@ -21,8 +28,12 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -62,6 +73,7 @@ fun FilterBar(
     FilterBarContent(
         filterState = filterState,
         onFilterToggle = { filterType -> filterViewModel.toggleFilter(filterType) },
+        onPriceModeChange = { mode -> filterViewModel.setPriceFilterMode(mode) },
         onClearAll = { filterViewModel.clearAllFilters() },
         showTTCFilter = showTTCFilter,
         modifier = modifier
@@ -73,6 +85,7 @@ fun FilterBar(
  *
  * @param filterState Current filter state
  * @param onFilterToggle Callback when a filter is toggled
+ * @param onPriceModeChange Callback when price filter mode changes
  * @param onClearAll Callback when clear all is pressed
  * @param showTTCFilter Whether to show the "Near TTC" filter option
  * @param modifier Modifier for the composable
@@ -81,37 +94,12 @@ fun FilterBar(
 fun FilterBarContent(
     filterState: FilterState,
     onFilterToggle: (FilterType) -> Unit,
+    onPriceModeChange: (PriceFilterMode) -> Unit,
     onClearAll: () -> Unit,
     showTTCFilter: Boolean = true,
     modifier: Modifier = Modifier
 ) {
     val scrollState = rememberScrollState()
-
-    val chips = buildList {
-        add(FilterChipData(
-            type = FilterType.OPEN_NOW,
-            label = "Open Now",
-            isSelected = filterState.isOpenNowActive
-        ))
-        add(FilterChipData(
-            type = FilterType.UNDER_15,
-            label = "Under $15",
-            isSelected = filterState.isUnder15Active
-        ))
-        add(FilterChipData(
-            type = FilterType.STUDENT_DISCOUNT,
-            label = "Student Discount",
-            isSelected = filterState.isStudentDiscountActive
-        ))
-        // Only show TTC filter when user is in Toronto area
-        if (showTTCFilter) {
-            add(FilterChipData(
-                type = FilterType.NEAR_TTC,
-                label = "Near TTC",
-                isSelected = filterState.isNearTTCActive
-            ))
-        }
-    }
 
     Row(
         modifier = modifier
@@ -128,11 +116,34 @@ fun FilterBarContent(
         ) {
             Spacer(modifier = Modifier.width(8.dp))
 
-            chips.forEach { chip ->
+            // Open Now chip
+            FilterChipItem(
+                label = "Open Now",
+                isSelected = filterState.isOpenNowActive,
+                onClick = { onFilterToggle(FilterType.OPEN_NOW) }
+            )
+
+            // Under $15 chip with mode dropdown
+            Under15FilterChip(
+                isActive = filterState.isUnder15Active,
+                priceMode = filterState.priceFilterMode,
+                onToggle = { onFilterToggle(FilterType.UNDER_15) },
+                onModeChange = onPriceModeChange
+            )
+
+            // Student Discount chip
+            FilterChipItem(
+                label = "Student Discount",
+                isSelected = filterState.isStudentDiscountActive,
+                onClick = { onFilterToggle(FilterType.STUDENT_DISCOUNT) }
+            )
+
+            // Only show TTC filter when user is in Toronto area
+            if (showTTCFilter) {
                 FilterChipItem(
-                    label = chip.label,
-                    isSelected = chip.isSelected,
-                    onClick = { onFilterToggle(chip.type) }
+                    label = "Near TTC",
+                    isSelected = filterState.isNearTTCActive,
+                    onClick = { onFilterToggle(FilterType.NEAR_TTC) }
                 )
             }
 
@@ -151,6 +162,121 @@ fun FilterBarContent(
                     tint = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
+        }
+    }
+}
+
+/**
+ * Under $15 filter chip with Strict/Flexible mode dropdown
+ */
+@Composable
+private fun Under15FilterChip(
+    isActive: Boolean,
+    priceMode: PriceFilterMode,
+    onToggle: () -> Unit,
+    onModeChange: (PriceFilterMode) -> Unit
+) {
+    var showModeMenu by remember { mutableStateOf(false) }
+
+    Box {
+        FilterChip(
+            selected = isActive,
+            onClick = onToggle,
+            label = {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        text = "Under \$15",
+                        style = MaterialTheme.typography.labelMedium
+                    )
+                    if (isActive) {
+                        Spacer(Modifier.width(4.dp))
+                        Text(
+                            text = if (priceMode == PriceFilterMode.STRICT) "Strict" else "Flex",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                        Icon(
+                            imageVector = Icons.Default.ArrowDropDown,
+                            contentDescription = "Change mode",
+                            modifier = Modifier.size(16.dp)
+                        )
+                    }
+                }
+            },
+            leadingIcon = if (isActive) {
+                {
+                    Icon(
+                        imageVector = Icons.Default.Done,
+                        contentDescription = null,
+                        modifier = Modifier.size(FilterChipDefaults.IconSize)
+                    )
+                }
+            } else null,
+            colors = FilterChipDefaults.filterChipColors(
+                selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
+                selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                selectedLeadingIconColor = MaterialTheme.colorScheme.onPrimaryContainer
+            )
+        )
+
+        // Only show menu when chip is active and user taps the mode indicator
+        if (isActive) {
+            // Invisible click target for dropdown on right side of chip
+            Box(
+                modifier = Modifier
+                    .matchParentSize()
+                    .padding(start = 80.dp)
+                    .clickable { showModeMenu = true }
+            )
+        }
+
+        // Mode dropdown menu
+        DropdownMenu(
+            expanded = showModeMenu && isActive,
+            onDismissRequest = { showModeMenu = false }
+        ) {
+            DropdownMenuItem(
+                text = {
+                    Column {
+                        Text("Strict", fontWeight = FontWeight.Medium)
+                        Text(
+                            "Verified prices under \$15 only",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                },
+                leadingIcon = {
+                    if (priceMode == PriceFilterMode.STRICT) {
+                        Icon(Icons.Default.Check, null, tint = MaterialTheme.colorScheme.primary)
+                    }
+                },
+                onClick = {
+                    onModeChange(PriceFilterMode.STRICT)
+                    showModeMenu = false
+                }
+            )
+            DropdownMenuItem(
+                text = {
+                    Column {
+                        Text("Flexible", fontWeight = FontWeight.Medium)
+                        Text(
+                            "Include estimated prices up to \$17",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                },
+                leadingIcon = {
+                    if (priceMode == PriceFilterMode.FLEXIBLE) {
+                        Icon(Icons.Default.Check, null, tint = MaterialTheme.colorScheme.primary)
+                    }
+                },
+                onClick = {
+                    onModeChange(PriceFilterMode.FLEXIBLE)
+                    showModeMenu = false
+                }
+            )
         }
     }
 }
@@ -201,6 +327,7 @@ private fun FilterBarPreview() {
         FilterBarContent(
             filterState = FilterState(),
             onFilterToggle = {},
+            onPriceModeChange = {},
             onClearAll = {}
         )
     }
@@ -213,10 +340,28 @@ private fun FilterBarWithSelectionsPreview() {
         FilterBarContent(
             filterState = FilterState(
                 isUnder15Active = true,
+                priceFilterMode = PriceFilterMode.STRICT,
                 isNearTTCActive = true,
                 isOpenNowActive = true
             ),
             onFilterToggle = {},
+            onPriceModeChange = {},
+            onClearAll = {}
+        )
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+private fun FilterBarFlexibleModePreview() {
+    CheapEatsTheme {
+        FilterBarContent(
+            filterState = FilterState(
+                isUnder15Active = true,
+                priceFilterMode = PriceFilterMode.FLEXIBLE
+            ),
+            onFilterToggle = {},
+            onPriceModeChange = {},
             onClearAll = {}
         )
     }
@@ -229,6 +374,7 @@ private fun FilterBarDarkPreview() {
         FilterBarContent(
             filterState = FilterState(isStudentDiscountActive = true),
             onFilterToggle = {},
+            onPriceModeChange = {},
             onClearAll = {}
         )
     }

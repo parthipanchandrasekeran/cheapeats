@@ -1,16 +1,7 @@
 package com.parthipan.cheapeats.data
 
+import com.parthipan.cheapeats.ui.filter.FilterState
 import java.util.Calendar
-
-/**
- * Represents a restaurant with its calculated ranking score and descriptive info.
- */
-data class RankedRestaurant(
-    val restaurant: Restaurant,
-    val score: Float,
-    val explanation: String,  // Casual Toronto-local description
-    val trustLabel: String    // Data freshness indicator
-)
 
 /**
  * Ranking and filtering logic for restaurants.

@@ -1,6 +1,8 @@
 package com.parthipan.cheapeats.ui.filter
 
 import androidx.lifecycle.ViewModel
+import com.parthipan.cheapeats.data.FilterContract
+import com.parthipan.cheapeats.data.PriceSource
 import com.parthipan.cheapeats.data.Restaurant
 import com.parthipan.cheapeats.data.SortOption
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -19,10 +21,19 @@ enum class FilterType {
 }
 
 /**
+ * Price filter strictness mode
+ */
+enum class PriceFilterMode {
+    STRICT,    // Only verified prices <= $15
+    FLEXIBLE   // Allows estimated prices up to $17
+}
+
+/**
  * UI State for the filter bar - immutable data class following MVVM pattern
  */
 data class FilterState(
     val isUnder15Active: Boolean = false,
+    val priceFilterMode: PriceFilterMode = PriceFilterMode.STRICT,
     val isStudentDiscountActive: Boolean = false,
     val isNearTTCActive: Boolean = false,
     val isOpenNowActive: Boolean = false,
@@ -39,6 +50,18 @@ data class FilterState(
      */
     val activeFilterCount: Int
         get() = listOf(isUnder15Active, isStudentDiscountActive, isNearTTCActive, isOpenNowActive).count { it }
+
+    /**
+     * Convert to hard filters for FilterContract enforcement.
+     * Hard filters are NEVER violated by AI recommendations.
+     */
+    fun toHardFilters(): FilterContract.HardFilters {
+        return FilterContract.HardFilters(
+            mustBeOpen = isOpenNowActive,
+            strictUnder15 = isUnder15Active && priceFilterMode == PriceFilterMode.STRICT,
+            mustBeNearTTC = isNearTTCActive
+        )
+    }
 }
 
 /**
@@ -100,6 +123,15 @@ class FilterViewModel : ViewModel() {
     }
 
     /**
+     * Set the price filter mode (Strict/Flexible)
+     */
+    fun setPriceFilterMode(mode: PriceFilterMode) {
+        _filterState.update { currentState ->
+            currentState.copy(priceFilterMode = mode)
+        }
+    }
+
+    /**
      * Clear all active filters
      */
     fun clearAllFilters() {
@@ -134,13 +166,38 @@ class FilterViewModel : ViewModel() {
 
             return restaurants.filter { restaurant ->
                 // Apply AND logic: restaurant must match ALL active filters
-                val matchesUnder15 = !filterState.isUnder15Active || restaurant.isUnder15
+                val matchesUnder15 = !filterState.isUnder15Active ||
+                    matchesPriceFilter(restaurant, filterState.priceFilterMode)
                 val matchesStudentDiscount = !filterState.isStudentDiscountActive || restaurant.hasStudentDiscount
                 val matchesNearTTC = !filterState.isNearTTCActive || restaurant.nearTTC
                 // For Open Now filter: exclude restaurants known to be closed, include unknown
                 val matchesOpenNow = !filterState.isOpenNowActive || restaurant.isOpenNow != false
 
                 matchesUnder15 && matchesStudentDiscount && matchesNearTTC && matchesOpenNow
+            }
+        }
+
+        /**
+         * Check if restaurant matches price filter based on mode.
+         * - Strict: verified prices <= $15 only
+         * - Flexible: allows estimated prices up to $17
+         */
+        private fun matchesPriceFilter(restaurant: Restaurant, mode: PriceFilterMode): Boolean {
+            return when (mode) {
+                PriceFilterMode.STRICT -> {
+                    // Strict: must have verified price under $15
+                    // Also allow unknown prices (based on priceLevel) to avoid empty results
+                    when {
+                        restaurant.averagePrice == null -> restaurant.priceLevel <= 1
+                        restaurant.priceSource == PriceSource.API_VERIFIED -> restaurant.averagePrice <= 15f
+                        restaurant.priceSource == PriceSource.UNKNOWN -> restaurant.averagePrice <= 15f
+                        else -> false // Exclude estimated prices in strict mode
+                    }
+                }
+                PriceFilterMode.FLEXIBLE -> {
+                    // Flexible: allow up to $17 or low priceLevel
+                    restaurant.isFlexiblyUnder15
+                }
             }
         }
     }

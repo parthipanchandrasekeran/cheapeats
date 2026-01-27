@@ -567,6 +567,8 @@ fun HomeScreen(
                             onFavoriteToggle = { restaurantId ->
                                 favoritesManager.toggleFavorite(restaurantId)
                             },
+                            showPriceConfidence = filterState.isUnder15Active &&
+                                filterState.priceFilterMode == com.parthipan.cheapeats.ui.filter.PriceFilterMode.FLEXIBLE,
                             modifier = Modifier.fillMaxSize()
                         )
                     }
@@ -718,6 +720,7 @@ fun RestaurantList(
     restaurants: List<Restaurant>,
     onRestaurantClick: (Restaurant) -> Unit,
     onFavoriteToggle: (String) -> Unit,
+    showPriceConfidence: Boolean = false,
     modifier: Modifier = Modifier
 ) {
     if (restaurants.isEmpty()) {
@@ -748,11 +751,16 @@ fun RestaurantList(
             contentPadding = PaddingValues(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            items(restaurants, key = { it.id }) { restaurant ->
+            items(
+                items = restaurants,
+                key = { it.id },
+                contentType = { "restaurant_card" }
+            ) { restaurant ->
                 RestaurantCard(
                     restaurant = restaurant,
                     onClick = { onRestaurantClick(restaurant) },
-                    onFavoriteToggle = { onFavoriteToggle(restaurant.id) }
+                    onFavoriteToggle = { onFavoriteToggle(restaurant.id) },
+                    showPriceConfidence = showPriceConfidence
                 )
             }
         }
@@ -764,6 +772,7 @@ fun RestaurantCard(
     restaurant: Restaurant,
     onClick: () -> Unit,
     onFavoriteToggle: () -> Unit,
+    showPriceConfidence: Boolean = false,
     modifier: Modifier = Modifier
 ) {
     Card(
@@ -782,34 +791,43 @@ fun RestaurantCard(
             verticalAlignment = Alignment.CenterVertically
         ) {
             // Restaurant image with favorite icon overlay
+            // Restaurant image placeholder (shown immediately)
+            val placeholderColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.2f)
+            val primaryColor = MaterialTheme.colorScheme.primary
+
             Box(
                 modifier = Modifier
                     .size(80.dp)
                     .clip(RoundedCornerShape(8.dp))
-                    .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.2f))
+                    .background(placeholderColor)
             ) {
+                // Always show letter placeholder first for instant feedback
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = restaurant.name.take(1),
+                        style = MaterialTheme.typography.headlineMedium,
+                        color = primaryColor,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+
+                // Load image on top if available
                 if (restaurant.imageUrl != null) {
                     AsyncImage(
                         model = ImageRequest.Builder(LocalContext.current)
                             .data(restaurant.imageUrl)
-                            .crossfade(true)
+                            .crossfade(200)
+                            .size(160) // Request smaller size for thumbnails
+                            .memoryCacheKey(restaurant.id)
+                            .diskCacheKey(restaurant.id)
                             .build(),
                         contentDescription = restaurant.name,
                         contentScale = ContentScale.Crop,
                         modifier = Modifier.fillMaxSize()
                     )
-                } else {
-                    Box(
-                        modifier = Modifier.fillMaxSize(),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(
-                            text = restaurant.name.take(1),
-                            style = MaterialTheme.typography.headlineMedium,
-                            color = MaterialTheme.colorScheme.primary,
-                            fontWeight = FontWeight.Bold
-                        )
-                    }
                 }
 
                 // Favorite heart icon with background for visibility
@@ -892,10 +910,25 @@ fun RestaurantCard(
                             color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
                         )
                         Text(
-                            text = "$${String.format("%.0f", restaurant.averagePrice)} avg",
+                            text = "~\$${String.format("%.0f", restaurant.averagePrice)}",
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
                         )
+                        // Show price confidence label in Flexible mode
+                        if (showPriceConfidence && restaurant.priceConfidenceLabel.isNotEmpty()) {
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text(
+                                text = restaurant.priceConfidenceLabel,
+                                style = MaterialTheme.typography.labelSmall,
+                                color = when (restaurant.priceSource) {
+                                    com.parthipan.cheapeats.data.PriceSource.API_VERIFIED ->
+                                        androidx.compose.ui.graphics.Color(0xFF4CAF50) // Green
+                                    com.parthipan.cheapeats.data.PriceSource.ESTIMATED ->
+                                        androidx.compose.ui.graphics.Color(0xFFFF9800) // Orange
+                                    else -> MaterialTheme.colorScheme.onSurfaceVariant
+                                }
+                            )
+                        }
                     }
                 }
 

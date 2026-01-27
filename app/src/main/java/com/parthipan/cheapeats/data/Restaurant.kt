@@ -16,6 +16,7 @@ data class Restaurant(
     val hasStudentDiscount: Boolean = false,
     val nearTTC: Boolean = false, // Near Toronto Transit Commission stop
     val averagePrice: Float? = null, // Average meal price in dollars
+    val priceSource: PriceSource = PriceSource.UNKNOWN, // Price confidence level
     val websiteUrl: String? = null, // Restaurant website URL
     val googleMapsUrl: String? = null, // Google Maps URL for directions
     val isOpenNow: Boolean? = null, // null = unknown, true = open, false = closed
@@ -44,6 +45,24 @@ data class Restaurant(
     // Check if restaurant is under $15 based on price level or average price
     val isUnder15: Boolean
         get() = averagePrice?.let { it < 15f } ?: (priceLevel <= 1)
+
+    // Strict mode: verified price under $15
+    val isVerifiedUnder15: Boolean
+        get() = averagePrice != null &&
+                averagePrice <= 15f &&
+                priceSource == PriceSource.API_VERIFIED
+
+    // Flexible mode: allows estimated prices up to $17
+    val isFlexiblyUnder15: Boolean
+        get() = when {
+            averagePrice == null -> priceLevel <= 1
+            averagePrice <= 17f -> true
+            else -> false
+        }
+
+    // Price confidence label for UI
+    val priceConfidenceLabel: String
+        get() = priceSource.toDisplayLabel()
 }
 
 // Sample data centered around 1200 York Mills Rd, Toronto (43.7615, -79.3456)
@@ -62,6 +81,7 @@ val sampleRestaurants = listOf(
         hasStudentDiscount = true,
         nearTTC = true,
         averagePrice = 12.99f,
+        priceSource = PriceSource.API_VERIFIED,
         isOpenNow = true,
         ttcWalkMinutes = 3,
         nearestStation = "York Mills",
@@ -81,6 +101,7 @@ val sampleRestaurants = listOf(
         hasStudentDiscount = false,
         nearTTC = true,
         averagePrice = 22.50f,
+        priceSource = PriceSource.API_VERIFIED,
         isOpenNow = true,
         ttcWalkMinutes = 4,
         nearestStation = "York Mills",
@@ -100,6 +121,7 @@ val sampleRestaurants = listOf(
         hasStudentDiscount = true,
         nearTTC = false,
         averagePrice = 14.00f,
+        priceSource = PriceSource.ESTIMATED,
         isOpenNow = false,
         ttcWalkMinutes = 12,
         nearestStation = "York Mills",
@@ -119,6 +141,7 @@ val sampleRestaurants = listOf(
         hasStudentDiscount = true,
         nearTTC = true,
         averagePrice = 11.50f,
+        priceSource = PriceSource.API_VERIFIED,
         isOpenNow = true,
         ttcWalkMinutes = 5,
         nearestStation = "York Mills",
@@ -138,6 +161,7 @@ val sampleRestaurants = listOf(
         hasStudentDiscount = false,
         nearTTC = false,
         averagePrice = 28.00f,
+        priceSource = PriceSource.ESTIMATED,
         isOpenNow = null,
         ttcWalkMinutes = 15,
         nearestStation = "Sheppard-Yonge",
@@ -157,6 +181,7 @@ val sampleRestaurants = listOf(
         hasStudentDiscount = true,
         nearTTC = true,
         averagePrice = 13.50f,
+        priceSource = PriceSource.API_VERIFIED,
         isOpenNow = true,
         ttcWalkMinutes = 6,
         nearestStation = "York Mills",
@@ -175,7 +200,8 @@ val sampleRestaurants = listOf(
         isSponsored = true,
         hasStudentDiscount = false,
         nearTTC = false,
-        averagePrice = 19.99f,
+        averagePrice = 16.50f,
+        priceSource = PriceSource.ESTIMATED,
         isOpenNow = true,
         ttcWalkMinutes = 10,
         nearestStation = "Sheppard-Yonge",
@@ -195,6 +221,7 @@ val sampleRestaurants = listOf(
         hasStudentDiscount = true,
         nearTTC = true,
         averagePrice = 10.99f,
+        priceSource = PriceSource.API_VERIFIED,
         isOpenNow = true,
         ttcWalkMinutes = 4,
         nearestStation = "York Mills",
