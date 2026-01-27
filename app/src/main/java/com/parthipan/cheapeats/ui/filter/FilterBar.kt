@@ -89,6 +89,11 @@ fun FilterBarContent(
 
     val chips = buildList {
         add(FilterChipData(
+            type = FilterType.OPEN_NOW,
+            label = "Open Now",
+            isSelected = filterState.isOpenNowActive
+        ))
+        add(FilterChipData(
             type = FilterType.UNDER_15,
             label = "Under $15",
             isSelected = filterState.isUnder15Active
@@ -208,7 +213,8 @@ private fun FilterBarWithSelectionsPreview() {
         FilterBarContent(
             filterState = FilterState(
                 isUnder15Active = true,
-                isNearTTCActive = true
+                isNearTTCActive = true,
+                isOpenNowActive = true
             ),
             onFilterToggle = {},
             onClearAll = {}

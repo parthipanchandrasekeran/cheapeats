@@ -57,7 +57,7 @@ class PlacesService(context: Context, private val apiKey: String) {
                 .url(url)
                 .post(requestBody.toRequestBody("application/json".toMediaType()))
                 .addHeader("X-Goog-Api-Key", apiKey)
-                .addHeader("X-Goog-FieldMask", "places.id,places.displayName,places.formattedAddress,places.location,places.rating,places.priceLevel,places.types,places.photos,places.websiteUri,places.googleMapsUri")
+                .addHeader("X-Goog-FieldMask", "places.id,places.displayName,places.formattedAddress,places.location,places.rating,places.priceLevel,places.types,places.photos,places.websiteUri,places.googleMapsUri,places.regularOpeningHours,places.currentOpeningHours,places.businessStatus")
                 .build()
 
             val response = httpClient.newCall(request).execute()
@@ -76,6 +76,7 @@ class PlacesService(context: Context, private val apiKey: String) {
             val placesResponse = gson.fromJson(responseBody, NewPlacesApiResponse::class.java)
             Log.d(TAG, "Results count: ${placesResponse.places?.size ?: 0}")
 
+            val currentTime = System.currentTimeMillis()
             val restaurantList = placesResponse.places?.map { place ->
                 Log.d(TAG, "Found: ${place.displayName?.text} - Price: ${place.priceLevel} - Rating: ${place.rating}")
                 val placeLocation = place.location
@@ -90,6 +91,26 @@ class PlacesService(context: Context, private val apiKey: String) {
                     placeLocation?.latitude ?: location.latitude,
                     placeLocation?.longitude ?: location.longitude
                 )
+
+                // Calculate TTC walking time
+                val nearestStationPair = TransitHelper.findNearestStation(restaurantLatLng)
+                val ttcWalkMinutes = nearestStationPair?.let { (_, distanceMeters) ->
+                    RestaurantRanker.walkingTimeMinutes(distanceMeters)
+                }
+                val nearestStationName = nearestStationPair?.first?.name
+
+                // Parse opening hours
+                val isOpenNow = place.currentOpeningHours?.openNow
+                    ?: place.regularOpeningHours?.openNow
+                val openingHoursText = place.currentOpeningHours?.weekdayDescriptions?.firstOrNull()
+                    ?: place.regularOpeningHours?.weekdayDescriptions?.firstOrNull()
+
+                // Determine data freshness based on whether we have live opening hours
+                val dataFreshness = when {
+                    place.currentOpeningHours?.openNow != null -> DataFreshness.LIVE
+                    place.regularOpeningHours?.openNow != null -> DataFreshness.RECENT
+                    else -> DataFreshness.UNKNOWN
+                }
 
                 Restaurant(
                     id = place.id ?: "place_${place.displayName?.text.hashCode()}",
@@ -108,7 +129,13 @@ class PlacesService(context: Context, private val apiKey: String) {
                     nearTTC = TransitHelper.isTransitAccessible(restaurantLatLng),
                     averagePrice = estimateAveragePrice(parsePriceLevel(place.priceLevel)),
                     websiteUrl = place.websiteUri,
-                    googleMapsUrl = place.googleMapsUri
+                    googleMapsUrl = place.googleMapsUri,
+                    isOpenNow = isOpenNow,
+                    openingHours = openingHoursText,
+                    ttcWalkMinutes = ttcWalkMinutes,
+                    nearestStation = nearestStationName,
+                    dataFreshness = dataFreshness,
+                    lastVerified = currentTime
                 )
             } ?: emptyList()
 
@@ -197,7 +224,20 @@ data class NewPlaceResult(
     val types: List<String>?,
     val photos: List<NewPlacePhoto>?,
     val websiteUri: String?,
-    val googleMapsUri: String?
+    val googleMapsUri: String?,
+    val regularOpeningHours: OpeningHours?,
+    val currentOpeningHours: CurrentOpeningHours?,
+    val businessStatus: String?
+)
+
+data class OpeningHours(
+    val openNow: Boolean?,
+    val weekdayDescriptions: List<String>?
+)
+
+data class CurrentOpeningHours(
+    val openNow: Boolean?,
+    val weekdayDescriptions: List<String>?
 )
 
 data class DisplayName(

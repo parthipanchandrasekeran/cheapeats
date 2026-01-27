@@ -150,7 +150,10 @@ class PlacesServiceHelperTest {
                     types = listOf("restaurant", "italian_restaurant"),
                     photos = null,
                     websiteUri = null,
-                    googleMapsUri = null
+                    googleMapsUri = null,
+                    regularOpeningHours = null,
+                    currentOpeningHours = null,
+                    businessStatus = null
                 )
             )
         )
@@ -178,7 +181,10 @@ class PlacesServiceHelperTest {
             types = listOf("restaurant", "japanese_restaurant", "sushi"),
             photos = listOf(NewPlacePhoto("photo_ref", 400, 300)),
             websiteUri = "https://example.com",
-            googleMapsUri = "https://maps.google.com/place"
+            googleMapsUri = "https://maps.google.com/place",
+            regularOpeningHours = OpeningHours(true, listOf("Monday: 9:00 AM - 9:00 PM")),
+            currentOpeningHours = CurrentOpeningHours(true, null),
+            businessStatus = "OPERATIONAL"
         )
 
         assertEquals("place_123", result.id)
@@ -194,6 +200,8 @@ class PlacesServiceHelperTest {
         assertNotNull(result.photos)
         assertEquals(1, result.photos!!.size)
         assertEquals("https://example.com", result.websiteUri)
+        assertTrue(result.currentOpeningHours?.openNow ?: false)
+        assertEquals("OPERATIONAL", result.businessStatus)
     }
 
     @Test
@@ -255,7 +263,10 @@ class PlacesServiceHelperTest {
             types = null,
             photos = null,
             websiteUri = null,
-            googleMapsUri = null
+            googleMapsUri = null,
+            regularOpeningHours = null,
+            currentOpeningHours = null,
+            businessStatus = null
         )
 
         assertNull(result.id)
@@ -266,5 +277,8 @@ class PlacesServiceHelperTest {
         assertNull(result.priceLevel)
         assertNull(result.types)
         assertNull(result.photos)
+        assertNull(result.regularOpeningHours)
+        assertNull(result.currentOpeningHours)
+        assertNull(result.businessStatus)
     }
 }

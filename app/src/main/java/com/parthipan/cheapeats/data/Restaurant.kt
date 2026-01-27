@@ -17,7 +17,13 @@ data class Restaurant(
     val nearTTC: Boolean = false, // Near Toronto Transit Commission stop
     val averagePrice: Float? = null, // Average meal price in dollars
     val websiteUrl: String? = null, // Restaurant website URL
-    val googleMapsUrl: String? = null // Google Maps URL for directions
+    val googleMapsUrl: String? = null, // Google Maps URL for directions
+    val isOpenNow: Boolean? = null, // null = unknown, true = open, false = closed
+    val openingHours: String? = null, // Human-readable hours
+    val ttcWalkMinutes: Int? = null, // Walking time from nearest station in minutes
+    val nearestStation: String? = null, // Nearest TTC station name
+    val dataFreshness: DataFreshness = DataFreshness.UNKNOWN, // Data trust level
+    val lastVerified: Long? = null // Timestamp when data was last verified
 ) {
     // Convenience properties for backwards compatibility
     val latitude: Double get() = location.latitude
@@ -54,7 +60,11 @@ val sampleRestaurants = listOf(
         isSponsored = true,
         hasStudentDiscount = true,
         nearTTC = true,
-        averagePrice = 12.99f
+        averagePrice = 12.99f,
+        isOpenNow = true,
+        ttcWalkMinutes = 3,
+        nearestStation = "York Mills",
+        dataFreshness = DataFreshness.LIVE
     ),
     Restaurant(
         id = "2",
@@ -69,7 +79,11 @@ val sampleRestaurants = listOf(
         isSponsored = false,
         hasStudentDiscount = false,
         nearTTC = true,
-        averagePrice = 22.50f
+        averagePrice = 22.50f,
+        isOpenNow = true,
+        ttcWalkMinutes = 4,
+        nearestStation = "York Mills",
+        dataFreshness = DataFreshness.RECENT
     ),
     Restaurant(
         id = "3",
@@ -84,7 +98,11 @@ val sampleRestaurants = listOf(
         isSponsored = true,
         hasStudentDiscount = true,
         nearTTC = false,
-        averagePrice = 14.00f
+        averagePrice = 14.00f,
+        isOpenNow = false,
+        ttcWalkMinutes = 12,
+        nearestStation = "York Mills",
+        dataFreshness = DataFreshness.CACHED
     ),
     Restaurant(
         id = "4",
@@ -99,7 +117,11 @@ val sampleRestaurants = listOf(
         isSponsored = false,
         hasStudentDiscount = true,
         nearTTC = true,
-        averagePrice = 11.50f
+        averagePrice = 11.50f,
+        isOpenNow = true,
+        ttcWalkMinutes = 5,
+        nearestStation = "York Mills",
+        dataFreshness = DataFreshness.LIVE
     ),
     Restaurant(
         id = "5",
@@ -114,7 +136,11 @@ val sampleRestaurants = listOf(
         isSponsored = false,
         hasStudentDiscount = false,
         nearTTC = false,
-        averagePrice = 28.00f
+        averagePrice = 28.00f,
+        isOpenNow = null,
+        ttcWalkMinutes = 15,
+        nearestStation = "Sheppard-Yonge",
+        dataFreshness = DataFreshness.UNKNOWN
     ),
     Restaurant(
         id = "6",
@@ -129,7 +155,11 @@ val sampleRestaurants = listOf(
         isSponsored = false,
         hasStudentDiscount = true,
         nearTTC = true,
-        averagePrice = 13.50f
+        averagePrice = 13.50f,
+        isOpenNow = true,
+        ttcWalkMinutes = 6,
+        nearestStation = "York Mills",
+        dataFreshness = DataFreshness.LIVE
     ),
     Restaurant(
         id = "7",
@@ -144,7 +174,11 @@ val sampleRestaurants = listOf(
         isSponsored = true,
         hasStudentDiscount = false,
         nearTTC = false,
-        averagePrice = 19.99f
+        averagePrice = 19.99f,
+        isOpenNow = true,
+        ttcWalkMinutes = 10,
+        nearestStation = "Sheppard-Yonge",
+        dataFreshness = DataFreshness.RECENT
     ),
     Restaurant(
         id = "8",
@@ -159,6 +193,10 @@ val sampleRestaurants = listOf(
         isSponsored = false,
         hasStudentDiscount = true,
         nearTTC = true,
-        averagePrice = 10.99f
+        averagePrice = 10.99f,
+        isOpenNow = true,
+        ttcWalkMinutes = 4,
+        nearestStation = "York Mills",
+        dataFreshness = DataFreshness.LIVE
     )
 )

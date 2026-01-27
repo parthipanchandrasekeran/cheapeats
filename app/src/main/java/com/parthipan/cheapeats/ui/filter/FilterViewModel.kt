@@ -2,6 +2,7 @@ package com.parthipan.cheapeats.ui.filter
 
 import androidx.lifecycle.ViewModel
 import com.parthipan.cheapeats.data.Restaurant
+import com.parthipan.cheapeats.data.SortOption
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -13,7 +14,8 @@ import kotlinx.coroutines.flow.update
 enum class FilterType {
     UNDER_15,
     STUDENT_DISCOUNT,
-    NEAR_TTC
+    NEAR_TTC,
+    OPEN_NOW
 }
 
 /**
@@ -22,19 +24,21 @@ enum class FilterType {
 data class FilterState(
     val isUnder15Active: Boolean = false,
     val isStudentDiscountActive: Boolean = false,
-    val isNearTTCActive: Boolean = false
+    val isNearTTCActive: Boolean = false,
+    val isOpenNowActive: Boolean = false,
+    val sortBy: SortOption = SortOption.RECOMMENDED
 ) {
     /**
      * Returns true if any filter is active
      */
     val hasActiveFilters: Boolean
-        get() = isUnder15Active || isStudentDiscountActive || isNearTTCActive
+        get() = isUnder15Active || isStudentDiscountActive || isNearTTCActive || isOpenNowActive
 
     /**
      * Returns the count of active filters
      */
     val activeFilterCount: Int
-        get() = listOf(isUnder15Active, isStudentDiscountActive, isNearTTCActive).count { it }
+        get() = listOf(isUnder15Active, isStudentDiscountActive, isNearTTCActive, isOpenNowActive).count { it }
 }
 
 /**
@@ -65,6 +69,9 @@ class FilterViewModel : ViewModel() {
                 FilterType.NEAR_TTC -> currentState.copy(
                     isNearTTCActive = !currentState.isNearTTCActive
                 )
+                FilterType.OPEN_NOW -> currentState.copy(
+                    isOpenNowActive = !currentState.isOpenNowActive
+                )
             }
         }
     }
@@ -78,7 +85,17 @@ class FilterViewModel : ViewModel() {
                 FilterType.UNDER_15 -> currentState.copy(isUnder15Active = isActive)
                 FilterType.STUDENT_DISCOUNT -> currentState.copy(isStudentDiscountActive = isActive)
                 FilterType.NEAR_TTC -> currentState.copy(isNearTTCActive = isActive)
+                FilterType.OPEN_NOW -> currentState.copy(isOpenNowActive = isActive)
             }
+        }
+    }
+
+    /**
+     * Set the sort option
+     */
+    fun setSortOption(sortOption: SortOption) {
+        _filterState.update { currentState ->
+            currentState.copy(sortBy = sortOption)
         }
     }
 
@@ -120,8 +137,10 @@ class FilterViewModel : ViewModel() {
                 val matchesUnder15 = !filterState.isUnder15Active || restaurant.isUnder15
                 val matchesStudentDiscount = !filterState.isStudentDiscountActive || restaurant.hasStudentDiscount
                 val matchesNearTTC = !filterState.isNearTTCActive || restaurant.nearTTC
+                // For Open Now filter: exclude restaurants known to be closed, include unknown
+                val matchesOpenNow = !filterState.isOpenNowActive || restaurant.isOpenNow != false
 
-                matchesUnder15 && matchesStudentDiscount && matchesNearTTC
+                matchesUnder15 && matchesStudentDiscount && matchesNearTTC && matchesOpenNow
             }
         }
     }

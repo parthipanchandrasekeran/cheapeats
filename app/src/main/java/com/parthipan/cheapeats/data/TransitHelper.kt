@@ -245,6 +245,32 @@ object TransitHelper {
     ): Boolean {
         return isTransitAccessible(location, radiusMeters, majorSubwayStations)
     }
+
+    // Walking speed in meters per minute (average walking pace ~5 km/h)
+    private const val WALKING_SPEED_M_PER_MIN = 80f
+
+    /**
+     * Calculate walking time in minutes from distance in meters.
+     * Uses average walking speed of 80 meters per minute (~5 km/h).
+     *
+     * @param distanceMeters Distance in meters
+     * @return Walking time in minutes
+     */
+    fun walkingTimeMinutes(distanceMeters: Float): Int {
+        return (distanceMeters / WALKING_SPEED_M_PER_MIN).toInt()
+    }
+
+    /**
+     * Get walking time to nearest station from a given location.
+     *
+     * @param location The LatLng coordinates to check
+     * @return Walking time in minutes to nearest station, or null if no stations available
+     */
+    fun walkingTimeToNearestStation(location: LatLng): Int? {
+        return findNearestStation(location)?.let { (_, distanceMeters) ->
+            walkingTimeMinutes(distanceMeters)
+        }
+    }
 }
 
 /**
