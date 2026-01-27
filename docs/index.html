@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CheapEats - Find Budget Meals in Toronto</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background: linear-gradient(135deg, #ff6b35 0%, #f7931e 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .container {
+            max-width: 600px;
+            margin: 20px;
+            padding: 50px 40px;
+            background-color: #fff;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.2);
+            text-align: center;
+        }
+        .logo {
+            width: 120px;
+            height: 120px;
+            margin: 0 auto 30px;
+            background: linear-gradient(135deg, #ff6b35 0%, #2d6a4f 100%);
+            border-radius: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 3rem;
+        }
+        h1 {
+            color: #2d6a4f;
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+        }
+        .tagline {
+            color: #ff6b35;
+            font-size: 1.2rem;
+            margin-bottom: 30px;
+        }
+        p {
+            color: #666;
+            margin-bottom: 20px;
+        }
+        .features {
+            text-align: left;
+            margin: 30px 0;
+            padding: 20px;
+            background-color: #f9f9f9;
+            border-radius: 12px;
+        }
+        .features li {
+            margin-bottom: 10px;
+            padding-left: 25px;
+            position: relative;
+        }
+        .features li::before {
+            content: "✓";
+            position: absolute;
+            left: 0;
+            color: #2d6a4f;
+            font-weight: bold;
+        }
+        .btn {
+            display: inline-block;
+            padding: 15px 40px;
+            background: linear-gradient(135deg, #2d6a4f 0%, #40916c 100%);
+            color: white;
+            text-decoration: none;
+            border-radius: 30px;
+            font-weight: 600;
+            margin: 10px;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 30px rgba(45, 106, 79, 0.3);
+        }
+        .btn-secondary {
+            background: #fff;
+            color: #ff6b35;
+            border: 2px solid #ff6b35;
+        }
+        .btn-secondary:hover {
+            box-shadow: 0 10px 30px rgba(255, 107, 53, 0.2);
+        }
+        .links {
+            margin-top: 40px;
+            padding-top: 20px;
+            border-top: 1px solid #eee;
+        }
+        .links a {
+            color: #666;
+            text-decoration: none;
+            margin: 0 15px;
+            font-size: 0.9rem;
+        }
+        .links a:hover {
+            color: #ff6b35;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="logo">🍽️</div>
+        <h1>CheapEats</h1>
+        <p class="tagline">Find delicious meals under $15 in Toronto</p>
+
+        <p>The smart way to discover budget-friendly dining in the city. AI-powered search, TTC-friendly recommendations, and honest price information.</p>
+
+        <ul class="features">
+            <li>Find meals under $15 CAD</li>
+            <li>AI-powered restaurant search</li>
+            <li>TTC proximity filters</li>
+            <li>Lunch route planning</li>
+            <li>Verified price confidence</li>
+            <li>Works offline</li>
+        </ul>
+
+        <div>
+            <a href="https://play.google.com/store/apps/details?id=com.parthipan.cheapeats" class="btn">
+                Get it on Google Play
+            </a>
+        </div>
+
+        <div class="links">
+            <a href="privacy-policy.html">Privacy Policy</a>
+            <a href="https://github.com/parthipanchandrasekeran/cheapeats">GitHub</a>
+            <a href="mailto:parthipan.chandrasekeran@gmail.com">Contact</a>
+        </div>
+    </div>
+</body>
+</html>

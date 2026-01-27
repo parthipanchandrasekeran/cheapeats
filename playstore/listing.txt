@@ -1,0 +1,100 @@
+================================================================================
+CHEAPEATS - PLAY STORE LISTING
+================================================================================
+
+APP TITLE (max 30 characters):
+------------------------------
+CheapEats - Budget Dining TO
+(28 characters)
+
+
+SHORT DESCRIPTION (max 80 characters):
+--------------------------------------
+Find delicious meals under $15 in Toronto. AI-powered search, TTC-friendly spots.
+(80 characters)
+
+
+FULL DESCRIPTION (max 4000 characters):
+---------------------------------------
+Hungry in Toronto but watching your wallet? CheapEats helps you discover amazing meals under $15 CAD - no more guessing, no more budget surprises.
+
+KEY FEATURES
+
+Smart Budget Search
+Search for "cheap tacos" or "filling lunch" and our AI understands exactly what you need. Every restaurant shows verified prices so you know what to expect before you go.
+
+TTC-Friendly Dining
+Living that Toronto transit life? Filter restaurants by TTC proximity. We show walking time from the nearest subway station so you can plan your lunch break perfectly.
+
+Lunch Route Planner
+Short on time? Tap "Lunch" to get an instant plan with your best option and a backup pick. One tap opens walking directions in Google Maps.
+
+Real Price Confidence
+See exactly how reliable each price is:
+- Verified: Confirmed by Google Places
+- Estimated: Based on price level
+- Unknown: Check before ordering
+
+We never recommend a restaurant without being upfront about the data.
+
+Filter Your Way
+- Under $15: Only budget-friendly spots
+- Open Now: Currently serving
+- Near TTC: Walking distance from subway
+- Student Discount: Places with student deals
+
+Dual View Modes
+Browse as a list or switch to map view to see all nearby options. Gold markers show sponsored restaurants, red markers show standard listings.
+
+Save Your Favorites
+Heart the spots you love. Create custom collections like "Lunch Spots" or "Late Night Eats" to organize your go-to places.
+
+Deals & Specials
+Discover daily specials, student discounts, and limited-time offers. Community-verified deals help you save even more.
+
+Works Offline
+Recently viewed restaurants are cached so you can check details even without internet. Perfect for the subway.
+
+WHY CHEAPEATS?
+
+We built this app because finding affordable food in Toronto shouldn't be hard. No sponsored rankings hiding the good stuff. No misleading "budget" tags on $20 meals. Just honest recommendations for people who want to eat well without overspending.
+
+Whether you're a student stretching your budget, a downtown worker grabbing a quick lunch, or just someone who appreciates good value - CheapEats has your back.
+
+PERFECT FOR
+- Students looking for affordable campus-area eats
+- Office workers planning quick lunch breaks
+- Budget-conscious foodies exploring Toronto
+- Anyone who wants honest price info before dining out
+
+Download CheapEats and never overpay for lunch again.
+
+---
+Made with love in Toronto.
+
+
+CATEGORY:
+---------
+Food & Drink
+
+
+TAGS/KEYWORDS:
+--------------
+cheap food, budget meals, Toronto restaurants, affordable dining, student food, lunch deals, TTC food, under 15 dollars, cheap eats toronto, budget friendly
+
+
+CONTENT RATING:
+---------------
+Everyone (no objectionable content)
+
+
+CONTACT EMAIL:
+--------------
+parthipan.chandrasekeran@gmail.com
+
+
+PRIVACY POLICY URL:
+-------------------
+https://parthipanchandrasekeran.github.io/cheapeats/privacy-policy.html
+
+================================================================================

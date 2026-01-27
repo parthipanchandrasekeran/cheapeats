@@ -234,6 +234,26 @@ Shown in restaurant detail screen:
 - Google Play Billing integration
 - Three tiers: Small ($1.99), Medium ($4.99), Large ($9.99)
 
+### 15. Lunch Route
+Actionable lunch planning feature optimized for Toronto workers.
+
+#### Features
+- **Primary & Backup Picks** - Top 2 restaurants meeting all criteria
+- **Start Location Selection** - Current location or TTC station
+- **Walking ETA** - Estimated time to reach restaurant
+- **Reason Chips** - Why each restaurant was recommended
+- **Turn-by-Turn Navigation** - Opens Google Maps walking directions
+
+#### Entry Points
+- "Lunch" button in HomeScreen top bar
+- Bottom sheet interface with start location selector
+
+#### Constraints Enforced
+- Respects all active filters (Under $15, Near TTC, etc.)
+- Uses lunch-hour TTC weighting (11am-2pm)
+- Never recommends UNKNOWN freshness as top pick
+- Supports offline mode with cached results
+
 ---
 
 ## Data Models
@@ -493,7 +513,6 @@ Displays when offline with cached data count.
 | Google Places API (New) | Restaurant search, details, photos |
 | Google Maps SDK | Map rendering, directions |
 | Vertex AI (Gemini) | AI search and recommendations |
-| Vertex AI (Imagen) | Logo generation |
 | Google Play Billing | In-app tips |
 | Fused Location | GPS location |
 
@@ -572,6 +591,72 @@ coil = "2.5.0"
 | 1.0.0 | Initial release with core features |
 | 1.1.0 | Added favorites, restaurant photos, price confidence indicators, time-aware ranking |
 | 1.2.0 | Added AI Trust & Transparency, Deals system, Collections, Offline mode, Map enhancements, Performance optimizations |
+| 1.3.0 | Added Lunch Route feature, custom app icon |
+
+---
+
+## Play Store Readiness Checklist
+
+| Item | Status | Notes |
+|------|--------|-------|
+| **App Assets** | | |
+| App Icon | Done | AI-generated icon in all mipmap densities |
+| Play Store Icon (512px) | Done | Located in `playstore/ic_launcher_512.png` |
+| Feature Graphic (1024x500) | Done | Located in `playstore/feature_graphic.png` |
+| Screenshots (phone) | Done | 8 screenshots in `playstore/screenshots/` |
+| Screenshots (tablet) | Pending | Optional but recommended |
+| **Legal & Policy** | | |
+| Privacy Policy | Done | `PRIVACY_POLICY.md` - needs public URL hosting |
+| Privacy Policy URL | Pending | Host on GitHub Pages or website |
+| Contact Email | Pending | Update in privacy policy |
+| **Store Listing** | | |
+| App Title | Done | "CheapEats - Budget Dining TO" (28 chars) |
+| Short Description | Done | 80-char description in `playstore/listing.txt` |
+| Full Description | Done | Full description in `playstore/listing.txt` |
+| App Category | Done | Food & Drink |
+| Content Rating | Pending | Complete questionnaire in Play Console |
+| **Technical** | | |
+| Release Keystore | Pending | Create production signing key |
+| ProGuard/R8 | Done | Enabled in release builds |
+| Version Code | Done | Currently 1 |
+| Version Name | Pending | Update to 1.3.0 |
+| Target API Level | Done | API 36 (Android 15) |
+| **Testing** | | |
+| Unit Tests | Done | 470+ tests passing |
+| Integration Tests | Done | UI tests passing |
+| Manual QA | Pending | Test on multiple devices |
+| **Play Console** | | |
+| Developer Account | Pending | $25 one-time registration fee |
+| App Bundle (AAB) | Pending | Generate signed AAB for upload |
+| Internal Testing Track | Pending | Test before production release |
+
+### Quick Start Commands
+
+```bash
+# Generate signed release AAB
+./gradlew bundleRelease
+
+# Run all tests before release
+./gradlew test
+
+# Check for lint issues
+./gradlew lint
+```
+
+### Files to Prepare
+
+1. **playstore/** folder:
+   - `ic_launcher_512.png` - Done
+   - `feature_graphic.png` - 1024x500px promotional image
+   - `screenshot_1.png` through `screenshot_8.png` - Phone screenshots
+
+2. **Store listing text** (save in `playstore/listing.txt`):
+   - Title, short description, full description
+   - Keywords/tags
+
+3. **Release keystore**:
+   - Generate and store securely (NOT in repo)
+   - Back up keystore + passwords
 
 ---
 

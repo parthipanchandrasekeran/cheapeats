@@ -234,7 +234,8 @@ class ViewModeIntegrationTest {
                 ViewMode.LIST -> {
                     RestaurantList(
                         restaurants = restaurants,
-                        onRestaurantClick = {}
+                        onRestaurantClick = {},
+                        onFavoriteToggle = {}
                     )
                 }
                 ViewMode.MAP -> {
@@ -276,7 +277,8 @@ class ViewModeIntegrationTest {
                 ViewMode.LIST -> {
                     RestaurantList(
                         restaurants = restaurants,
-                        onRestaurantClick = {}
+                        onRestaurantClick = {},
+                        onFavoriteToggle = {}
                     )
                 }
                 ViewMode.MAP -> {
@@ -318,7 +320,8 @@ class ViewModeIntegrationTest {
                 ViewMode.LIST -> {
                     RestaurantList(
                         restaurants = restaurants,
-                        onRestaurantClick = {}
+                        onRestaurantClick = {},
+                        onFavoriteToggle = {}
                     )
                 }
                 ViewMode.MAP -> {

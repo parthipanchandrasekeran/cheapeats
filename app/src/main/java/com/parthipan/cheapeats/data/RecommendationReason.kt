@@ -26,7 +26,8 @@ enum class RecommendationReason(
     QUERY_MATCH("Matches search", Icons.Default.Search),
     STUDENT_DISCOUNT("Student deal", Icons.Default.Person),
     QUICK_SERVICE("Fast service", Icons.Default.Check),
-    LUNCH_SPECIAL("Lunch special", Icons.Default.Info)
+    LUNCH_SPECIAL("Lunch special", Icons.Default.Info),
+    FASTEST_OPTION("Fastest lunch", Icons.Default.Check)
 }
 
 /**

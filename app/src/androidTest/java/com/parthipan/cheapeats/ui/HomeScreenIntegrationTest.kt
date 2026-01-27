@@ -44,6 +44,7 @@ class HomeScreenIntegrationTest {
                 FilterBarContent(
                     filterState = FilterState(),
                     onFilterToggle = {},
+                    onPriceModeChange = {},
                     onClearAll = {},
                     showTTCFilter = true // In Toronto
                 )
@@ -61,6 +62,7 @@ class HomeScreenIntegrationTest {
                 FilterBarContent(
                     filterState = FilterState(),
                     onFilterToggle = {},
+                    onPriceModeChange = {},
                     onClearAll = {},
                     showTTCFilter = false // Outside Toronto (e.g., Brantford)
                 )
@@ -79,6 +81,7 @@ class HomeScreenIntegrationTest {
                 FilterBarContent(
                     filterState = FilterState(),
                     onFilterToggle = {},
+                    onPriceModeChange = {},
                     onClearAll = {},
                     showTTCFilter = false
                 )
@@ -99,6 +102,7 @@ class HomeScreenIntegrationTest {
                 FilterBarContent(
                     filterState = FilterState(),
                     onFilterToggle = { filterType -> toggledFilter = filterType },
+                    onPriceModeChange = {},
                     onClearAll = {},
                     showTTCFilter = true
                 )
@@ -125,6 +129,7 @@ class HomeScreenIntegrationTest {
                 FilterBarContent(
                     filterState = FilterState(isUnder15Active = true),
                     onFilterToggle = {},
+                    onPriceModeChange = {},
                     onClearAll = {},
                     showTTCFilter = true
                 )
@@ -142,6 +147,7 @@ class HomeScreenIntegrationTest {
                 FilterBarContent(
                     filterState = FilterState(), // No active filters
                     onFilterToggle = {},
+                    onPriceModeChange = {},
                     onClearAll = {},
                     showTTCFilter = true
                 )
@@ -161,6 +167,7 @@ class HomeScreenIntegrationTest {
                 FilterBarContent(
                     filterState = FilterState(isUnder15Active = true),
                     onFilterToggle = {},
+                    onPriceModeChange = {},
                     onClearAll = { clearAllCalled = true },
                     showTTCFilter = true
                 )
@@ -185,7 +192,8 @@ class HomeScreenIntegrationTest {
             CheapEatsTheme {
                 RestaurantList(
                     restaurants = restaurants,
-                    onRestaurantClick = {}
+                    onRestaurantClick = {},
+                    onFavoriteToggle = {}
                 )
             }
         }
@@ -201,7 +209,8 @@ class HomeScreenIntegrationTest {
             CheapEatsTheme {
                 RestaurantList(
                     restaurants = emptyList(),
-                    onRestaurantClick = {}
+                    onRestaurantClick = {},
+                    onFavoriteToggle = {}
                 )
             }
         }
@@ -219,7 +228,8 @@ class HomeScreenIntegrationTest {
             CheapEatsTheme {
                 RestaurantList(
                     restaurants = listOf(restaurant),
-                    onRestaurantClick = { clickedRestaurant = it }
+                    onRestaurantClick = { clickedRestaurant = it },
+                    onFavoriteToggle = {}
                 )
             }
         }
@@ -251,7 +261,8 @@ class HomeScreenIntegrationTest {
             CheapEatsTheme {
                 RestaurantCard(
                     restaurant = restaurant,
-                    onClick = {}
+                    onClick = {},
+                    onFavoriteToggle = {}
                 )
             }
         }
@@ -270,7 +281,8 @@ class HomeScreenIntegrationTest {
             CheapEatsTheme {
                 RestaurantCard(
                     restaurant = restaurant,
-                    onClick = {}
+                    onClick = {},
+                    onFavoriteToggle = {}
                 )
             }
         }
@@ -286,7 +298,8 @@ class HomeScreenIntegrationTest {
             CheapEatsTheme {
                 RestaurantCard(
                     restaurant = restaurant,
-                    onClick = {}
+                    onClick = {},
+                    onFavoriteToggle = {}
                 )
             }
         }
@@ -302,7 +315,8 @@ class HomeScreenIntegrationTest {
             CheapEatsTheme {
                 RestaurantCard(
                     restaurant = createTestRestaurant("1", "Click Me"),
-                    onClick = { clickCalled = true }
+                    onClick = { clickCalled = true },
+                    onFavoriteToggle = {}
                 )
             }
         }
@@ -319,7 +333,8 @@ class HomeScreenIntegrationTest {
             CheapEatsTheme {
                 RestaurantCard(
                     restaurant = restaurant,
-                    onClick = {}
+                    onClick = {},
+                    onFavoriteToggle = {}
                 )
             }
         }
@@ -335,7 +350,8 @@ class HomeScreenIntegrationTest {
             CheapEatsTheme {
                 RestaurantCard(
                     restaurant = restaurant,
-                    onClick = {}
+                    onClick = {},
+                    onFavoriteToggle = {}
                 )
             }
         }

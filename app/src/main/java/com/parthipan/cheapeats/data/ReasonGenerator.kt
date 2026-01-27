@@ -75,6 +75,7 @@ object ReasonGenerator {
                 RecommendationReason.STUDENT_DISCOUNT -> "student discount"
                 RecommendationReason.QUICK_SERVICE -> "quick service"
                 RecommendationReason.LUNCH_SPECIAL -> "lunch special"
+                RecommendationReason.FASTEST_OPTION -> "fastest option"
             }
         }
         return parts.joinToString(", ").replaceFirstChar { it.uppercase() }

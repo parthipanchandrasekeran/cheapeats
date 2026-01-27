@@ -113,6 +113,7 @@ class LocationIntegrationTest {
                 FilterBarContent(
                     filterState = FilterState(),
                     onFilterToggle = {},
+                    onPriceModeChange = {},
                     onClearAll = {},
                     showTTCFilter = isInToronto
                 )
@@ -133,6 +134,7 @@ class LocationIntegrationTest {
                 FilterBarContent(
                     filterState = FilterState(),
                     onFilterToggle = {},
+                    onPriceModeChange = {},
                     onClearAll = {},
                     showTTCFilter = isInToronto
                 )
@@ -153,6 +155,7 @@ class LocationIntegrationTest {
                 FilterBarContent(
                     filterState = FilterState(),
                     onFilterToggle = {},
+                    onPriceModeChange = {},
                     onClearAll = {},
                     showTTCFilter = isInToronto
                 )

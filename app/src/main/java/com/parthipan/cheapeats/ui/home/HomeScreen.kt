@@ -28,6 +28,7 @@ import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.Place
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.AlertDialog
@@ -93,8 +94,13 @@ import com.parthipan.cheapeats.data.sampleRestaurants
 import com.parthipan.cheapeats.ui.detail.RestaurantDetailScreen
 import com.parthipan.cheapeats.ui.filter.FilterBar
 import com.parthipan.cheapeats.ui.filter.FilterViewModel
+import com.parthipan.cheapeats.ui.lunchroute.LunchRouteBottomSheet
+import com.parthipan.cheapeats.ui.lunchroute.LunchRouteViewModel
 import com.parthipan.cheapeats.ui.map.MapScreen
 import com.parthipan.cheapeats.ui.theme.CheapEatsTheme
+import android.content.Intent
+import android.net.Uri
+import com.parthipan.cheapeats.data.lunchroute.RouteStart
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -148,6 +154,11 @@ fun HomeScreen(
     // Menu and tip dialog state
     var showMenu by remember { mutableStateOf(false) }
     var showTipDialog by remember { mutableStateOf(false) }
+
+    // Lunch Route state
+    var showLunchRoute by remember { mutableStateOf(false) }
+    val lunchRouteViewModel: LunchRouteViewModel = viewModel()
+    val lunchRouteState by lunchRouteViewModel.state.collectAsState()
 
     // Billing service
     val billingService = remember { BillingService(context) }
@@ -334,22 +345,32 @@ fun HomeScreen(
                     )
                 },
                 actions = {
-                    IconButton(
+                    // Lunch Route button with text
+                    androidx.compose.material3.TextButton(
+                        onClick = { showLunchRoute = true },
+                        colors = androidx.compose.material3.ButtonDefaults.textButtonColors(
+                            contentColor = MaterialTheme.colorScheme.onPrimary
+                        )
+                    ) {
+                        Text(
+                            text = "Lunch",
+                            style = MaterialTheme.typography.labelLarge,
+                            fontWeight = FontWeight.Medium
+                        )
+                    }
+                    // View mode toggle with text label
+                    androidx.compose.material3.TextButton(
                         onClick = {
                             viewMode = if (viewMode == ViewMode.LIST) ViewMode.MAP else ViewMode.LIST
-                        }
+                        },
+                        colors = androidx.compose.material3.ButtonDefaults.textButtonColors(
+                            contentColor = MaterialTheme.colorScheme.onPrimary
+                        )
                     ) {
-                        Icon(
-                            imageVector = if (viewMode == ViewMode.LIST) {
-                                Icons.Default.LocationOn
-                            } else {
-                                Icons.AutoMirrored.Filled.List
-                            },
-                            contentDescription = if (viewMode == ViewMode.LIST) {
-                                "Switch to Map View"
-                            } else {
-                                "Switch to List View"
-                            }
+                        Text(
+                            text = if (viewMode == ViewMode.LIST) "Map" else "List",
+                            style = MaterialTheme.typography.labelLarge,
+                            fontWeight = FontWeight.Medium
                         )
                     }
                     Box {
@@ -595,6 +616,51 @@ fun HomeScreen(
                 }
             },
             onDismiss = { showTipDialog = false }
+        )
+    }
+
+    // Lunch Route Bottom Sheet
+    if (showLunchRoute) {
+        LunchRouteBottomSheet(
+            state = lunchRouteState,
+            isInTorontoArea = isInTorontoArea,
+            onStartFromCurrentLocation = {
+                userLocation?.let { loc ->
+                    lunchRouteViewModel.selectStartLocation(RouteStart.CurrentLocation(loc))
+                    lunchRouteViewModel.generatePlan(
+                        restaurants = restaurants,
+                        filterState = filterState,
+                        userLocation = loc
+                    )
+                }
+            },
+            onStartFromStation = { station ->
+                lunchRouteViewModel.selectStartLocation(RouteStart.TTCStation(station))
+                lunchRouteViewModel.generatePlan(
+                    restaurants = restaurants,
+                    filterState = filterState,
+                    userLocation = station.location
+                )
+            },
+            onStartDirections = { restaurant ->
+                // Use Google Maps navigation intent for turn-by-turn directions
+                val lat = restaurant.location.latitude
+                val lng = restaurant.location.longitude
+                val uri = "google.navigation:q=$lat,$lng&mode=w"
+                val intent = Intent(Intent.ACTION_VIEW, Uri.parse(uri))
+                intent.setPackage("com.google.android.apps.maps")
+                try {
+                    context.startActivity(intent)
+                } catch (e: Exception) {
+                    // Fallback to web URL if Google Maps not installed
+                    val webUri = "https://www.google.com/maps/dir/?api=1&destination=$lat,$lng&travelmode=walking"
+                    context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(webUri)))
+                }
+            },
+            onDismiss = {
+                showLunchRoute = false
+                lunchRouteViewModel.clearPlan()
+            }
         )
     }
 }
