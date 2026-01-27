@@ -575,6 +575,13 @@ fun TipDialog(
                     textAlign = TextAlign.Center
                 )
 
+                Text(
+                    text = "This is completely optional - the app is free forever!",
+                    style = MaterialTheme.typography.bodySmall,
+                    textAlign = TextAlign.Center,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+
                 Spacer(modifier = Modifier.height(8.dp))
 
                 if (tipProducts.isEmpty()) {
