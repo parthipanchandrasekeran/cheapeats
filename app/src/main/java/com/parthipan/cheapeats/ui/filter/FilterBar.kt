@@ -45,13 +45,16 @@ data class FilterChipData(
  * - Horizontal scrolling for small screens
  * - Clear all button when filters are active
  * - Visual feedback for selected state
+ * - TTC filter only shown when user is in Toronto area
  *
  * @param filterViewModel The ViewModel managing filter state
+ * @param showTTCFilter Whether to show the "Near TTC" filter (should be false outside Toronto)
  * @param modifier Modifier for the composable
  */
 @Composable
 fun FilterBar(
     filterViewModel: FilterViewModel = viewModel(),
+    showTTCFilter: Boolean = true,
     modifier: Modifier = Modifier
 ) {
     val filterState by filterViewModel.filterState.collectAsState()
@@ -60,39 +63,50 @@ fun FilterBar(
         filterState = filterState,
         onFilterToggle = { filterType -> filterViewModel.toggleFilter(filterType) },
         onClearAll = { filterViewModel.clearAllFilters() },
+        showTTCFilter = showTTCFilter,
         modifier = modifier
     )
 }
 
 /**
  * Stateless filter bar content - separated for easier testing and preview
+ *
+ * @param filterState Current filter state
+ * @param onFilterToggle Callback when a filter is toggled
+ * @param onClearAll Callback when clear all is pressed
+ * @param showTTCFilter Whether to show the "Near TTC" filter option
+ * @param modifier Modifier for the composable
  */
 @Composable
 fun FilterBarContent(
     filterState: FilterState,
     onFilterToggle: (FilterType) -> Unit,
     onClearAll: () -> Unit,
+    showTTCFilter: Boolean = true,
     modifier: Modifier = Modifier
 ) {
     val scrollState = rememberScrollState()
 
-    val chips = listOf(
-        FilterChipData(
+    val chips = buildList {
+        add(FilterChipData(
             type = FilterType.UNDER_15,
             label = "Under $15",
             isSelected = filterState.isUnder15Active
-        ),
-        FilterChipData(
+        ))
+        add(FilterChipData(
             type = FilterType.STUDENT_DISCOUNT,
             label = "Student Discount",
             isSelected = filterState.isStudentDiscountActive
-        ),
-        FilterChipData(
-            type = FilterType.NEAR_TTC,
-            label = "Near TTC",
-            isSelected = filterState.isNearTTCActive
-        )
-    )
+        ))
+        // Only show TTC filter when user is in Toronto area
+        if (showTTCFilter) {
+            add(FilterChipData(
+                type = FilterType.NEAR_TTC,
+                label = "Near TTC",
+                isSelected = filterState.isNearTTCActive
+            ))
+        }
+    }
 
     Row(
         modifier = modifier

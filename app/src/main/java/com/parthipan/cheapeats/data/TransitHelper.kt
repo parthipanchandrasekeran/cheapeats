@@ -20,6 +20,36 @@ object TransitHelper {
     // Default radius for transit accessibility (in meters)
     const val DEFAULT_TRANSIT_RADIUS_METERS = 500.0
 
+    // Greater Toronto Area bounding box (approximate)
+    private const val GTA_MIN_LAT = 43.4
+    private const val GTA_MAX_LAT = 44.0
+    private const val GTA_MIN_LNG = -79.8
+    private const val GTA_MAX_LNG = -79.0
+
+    /**
+     * Checks if a location is within the Greater Toronto Area.
+     * Used to determine if TTC-related features should be enabled.
+     *
+     * @param location The LatLng coordinates to check
+     * @return true if the location is within the GTA bounds
+     */
+    fun isInTorontoArea(location: LatLng): Boolean {
+        return location.latitude in GTA_MIN_LAT..GTA_MAX_LAT &&
+               location.longitude in GTA_MIN_LNG..GTA_MAX_LNG
+    }
+
+    /**
+     * Checks if coordinates are within the Greater Toronto Area.
+     *
+     * @param latitude The latitude to check
+     * @param longitude The longitude to check
+     * @return true if the coordinates are within the GTA bounds
+     */
+    fun isInTorontoArea(latitude: Double, longitude: Double): Boolean {
+        return latitude in GTA_MIN_LAT..GTA_MAX_LAT &&
+               longitude in GTA_MIN_LNG..GTA_MAX_LNG
+    }
+
     /**
      * Major Toronto TTC Subway Station coordinates
      * These are key interchange/hub stations

@@ -30,6 +30,8 @@ import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -70,6 +72,7 @@ import com.google.android.gms.maps.model.LatLng
 import com.google.android.gms.tasks.CancellationTokenSource
 import com.parthipan.cheapeats.data.PlacesService
 import com.parthipan.cheapeats.data.Restaurant
+import com.parthipan.cheapeats.data.TransitHelper
 import com.parthipan.cheapeats.data.VertexAiService
 import com.parthipan.cheapeats.data.sampleRestaurants
 import com.parthipan.cheapeats.ui.detail.RestaurantDetailScreen
@@ -107,9 +110,14 @@ fun HomeScreen(
     var aiRecommendation by remember { mutableStateOf<String?>(null) }
     var userLocation by remember { mutableStateOf<LatLng?>(null) }
     var locationError by remember { mutableStateOf<String?>(null) }
+    var isInTorontoArea by remember { mutableStateOf(true) } // Default to true, update when location known
 
     // Navigation state for restaurant detail
     var selectedRestaurant by remember { mutableStateOf<Restaurant?>(null) }
+
+    // Menu state
+    var showMenu by remember { mutableStateOf(false) }
+    var isGeneratingLogo by remember { mutableStateOf(false) }
 
     // Collect filter state
     val filterState by filterViewModel.filterState.collectAsState()
@@ -117,9 +125,14 @@ fun HomeScreen(
     // Handle restaurant click
     val onRestaurantClick: (Restaurant) -> Unit = { restaurant ->
         if (!filterState.hasActiveFilters) {
+            val filterOptions = if (isInTorontoArea) {
+                "Under \$15, Student Discount, or Near TTC"
+            } else {
+                "Under \$15 or Student Discount"
+            }
             scope.launch {
                 snackbarHostState.showSnackbar(
-                    message = "Please select a filter (Under \$15, Student Discount, or Near TTC) first"
+                    message = "Please select a filter ($filterOptions) first"
                 )
             }
         } else {
@@ -155,6 +168,9 @@ fun HomeScreen(
                 val location = getCurrentLocation(context)
                 if (location != null) {
                     userLocation = LatLng(location.latitude, location.longitude)
+
+                    // Check if user is in Toronto area for TTC filter
+                    isInTorontoArea = TransitHelper.isInTorontoArea(location.latitude, location.longitude)
 
                     // Fetch real restaurants if PlacesService available
                     if (placesService != null) {
@@ -262,11 +278,54 @@ fun HomeScreen(
                             }
                         )
                     }
-                    IconButton(onClick = { }) {
-                        Icon(
-                            imageVector = Icons.Default.Menu,
-                            contentDescription = "Menu"
-                        )
+                    Box {
+                        IconButton(onClick = { showMenu = true }) {
+                            if (isGeneratingLogo) {
+                                CircularProgressIndicator(
+                                    modifier = Modifier.size(24.dp),
+                                    strokeWidth = 2.dp,
+                                    color = MaterialTheme.colorScheme.onPrimary
+                                )
+                            } else {
+                                Icon(
+                                    imageVector = Icons.Default.Menu,
+                                    contentDescription = "Menu"
+                                )
+                            }
+                        }
+                        DropdownMenu(
+                            expanded = showMenu,
+                            onDismissRequest = { showMenu = false }
+                        ) {
+                            DropdownMenuItem(
+                                text = { Text("Generate Logo") },
+                                onClick = {
+                                    showMenu = false
+                                    if (vertexAiService != null) {
+                                        isGeneratingLogo = true
+                                        scope.launch {
+                                            try {
+                                                val logoPrompt = "A modern minimalist app logo for CheapEats, a Toronto food deals app. Features: CN Tower silhouette, maple leaf accent, fork and knife, warm orange and red colors, clean flat design, no text, square format, professional app icon style"
+                                                val logoPath = vertexAiService.generateLogo(logoPrompt)
+                                                if (logoPath != null) {
+                                                    snackbarHostState.showSnackbar("Logo saved to: $logoPath")
+                                                } else {
+                                                    snackbarHostState.showSnackbar("Failed to generate logo")
+                                                }
+                                            } catch (e: Exception) {
+                                                snackbarHostState.showSnackbar("Error: ${e.message}")
+                                            } finally {
+                                                isGeneratingLogo = false
+                                            }
+                                        }
+                                    } else {
+                                        scope.launch {
+                                            snackbarHostState.showSnackbar("Vertex AI service not available")
+                                        }
+                                    }
+                                }
+                            )
+                        }
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -325,8 +384,10 @@ fun HomeScreen(
                 ) { }
 
                 // Filter Bar - horizontal scrollable chips
+                // TTC filter only shown when user is in Toronto area
                 FilterBar(
                     filterViewModel = filterViewModel,
+                    showTTCFilter = isInTorontoArea,
                     modifier = Modifier.fillMaxWidth()
                 )
 
