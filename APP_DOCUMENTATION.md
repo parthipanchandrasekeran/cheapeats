@@ -606,9 +606,9 @@ coil = "2.5.0"
 | Screenshots (phone) | Done | 8 screenshots in `playstore/screenshots/` |
 | Screenshots (tablet) | Pending | Optional but recommended |
 | **Legal & Policy** | | |
-| Privacy Policy | Done | `PRIVACY_POLICY.md` - needs public URL hosting |
-| Privacy Policy URL | Pending | Host on GitHub Pages or website |
-| Contact Email | Pending | Update in privacy policy |
+| Privacy Policy | Done | `PRIVACY_POLICY.md` and `docs/privacy-policy.html` |
+| Privacy Policy URL | Done | https://parthipanchandrasekeran.github.io/cheapeats/privacy-policy.html |
+| Contact Email | Done | parthipan_chandrasekaran@yahoo.com |
 | **Store Listing** | | |
 | App Title | Done | "CheapEats - Budget Dining TO" (28 chars) |
 | Short Description | Done | 80-char description in `playstore/listing.txt` |
