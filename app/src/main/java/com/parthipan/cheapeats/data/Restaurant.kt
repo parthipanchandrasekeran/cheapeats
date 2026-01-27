@@ -15,7 +15,9 @@ data class Restaurant(
     val isSponsored: Boolean = false,
     val hasStudentDiscount: Boolean = false,
     val nearTTC: Boolean = false, // Near Toronto Transit Commission stop
-    val averagePrice: Float? = null // Average meal price in dollars
+    val averagePrice: Float? = null, // Average meal price in dollars
+    val websiteUrl: String? = null, // Restaurant website URL
+    val googleMapsUrl: String? = null // Google Maps URL for directions
 ) {
     // Convenience properties for backwards compatibility
     val latitude: Double get() = location.latitude

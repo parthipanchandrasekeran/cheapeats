@@ -5,6 +5,7 @@ import android.annotation.SuppressLint
 import android.content.Context
 import android.location.Location
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -36,6 +37,9 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SearchBar
 import androidx.compose.material3.SearchBarDefaults
+import androidx.compose.material3.Snackbar
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.SuggestionChip
 import androidx.compose.material3.SuggestionChipDefaults
 import androidx.compose.material3.Text
@@ -47,6 +51,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -67,11 +72,13 @@ import com.parthipan.cheapeats.data.PlacesService
 import com.parthipan.cheapeats.data.Restaurant
 import com.parthipan.cheapeats.data.VertexAiService
 import com.parthipan.cheapeats.data.sampleRestaurants
+import com.parthipan.cheapeats.ui.detail.RestaurantDetailScreen
 import com.parthipan.cheapeats.ui.filter.FilterBar
 import com.parthipan.cheapeats.ui.filter.FilterViewModel
 import com.parthipan.cheapeats.ui.map.MapScreen
 import com.parthipan.cheapeats.ui.theme.CheapEatsTheme
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 
 enum class ViewMode {
@@ -87,6 +94,9 @@ fun HomeScreen(
     filterViewModel: FilterViewModel = viewModel()
 ) {
     val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    val snackbarHostState = remember { SnackbarHostState() }
+
     var searchQuery by remember { mutableStateOf("") }
     var isSearchActive by remember { mutableStateOf(false) }
     var viewMode by remember { mutableStateOf(ViewMode.LIST) }
@@ -98,8 +108,24 @@ fun HomeScreen(
     var userLocation by remember { mutableStateOf<LatLng?>(null) }
     var locationError by remember { mutableStateOf<String?>(null) }
 
+    // Navigation state for restaurant detail
+    var selectedRestaurant by remember { mutableStateOf<Restaurant?>(null) }
+
     // Collect filter state
     val filterState by filterViewModel.filterState.collectAsState()
+
+    // Handle restaurant click
+    val onRestaurantClick: (Restaurant) -> Unit = { restaurant ->
+        if (!filterState.hasActiveFilters) {
+            scope.launch {
+                snackbarHostState.showSnackbar(
+                    message = "Please select a filter (Under \$15, Student Discount, or Near TTC) first"
+                )
+            }
+        } else {
+            selectedRestaurant = restaurant
+        }
+    }
 
     // Apply both search and chip filters
     val displayedRestaurants = remember(searchFilteredRestaurants, filterState) {
@@ -188,8 +214,27 @@ fun HomeScreen(
         }
     }
 
+    // Show detail screen if a restaurant is selected
+    if (selectedRestaurant != null) {
+        RestaurantDetailScreen(
+            restaurant = selectedRestaurant!!,
+            showUnder15Only = filterState.isUnder15Active,
+            onBackClick = { selectedRestaurant = null }
+        )
+        return
+    }
+
     Scaffold(
         modifier = modifier,
+        snackbarHost = {
+            SnackbarHost(hostState = snackbarHostState) { data ->
+                Snackbar(
+                    snackbarData = data,
+                    containerColor = MaterialTheme.colorScheme.errorContainer,
+                    contentColor = MaterialTheme.colorScheme.onErrorContainer
+                )
+            }
+        },
         topBar = {
             TopAppBar(
                 title = {
@@ -372,6 +417,7 @@ fun HomeScreen(
                     } else {
                         RestaurantList(
                             restaurants = displayedRestaurants,
+                            onRestaurantClick = onRestaurantClick,
                             modifier = Modifier.fillMaxSize()
                         )
                     }
@@ -406,6 +452,7 @@ private suspend fun getCurrentLocation(context: Context): Location? {
 @Composable
 fun RestaurantList(
     restaurants: List<Restaurant>,
+    onRestaurantClick: (Restaurant) -> Unit,
     modifier: Modifier = Modifier
 ) {
     if (restaurants.isEmpty()) {
@@ -437,7 +484,10 @@ fun RestaurantList(
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             items(restaurants, key = { it.id }) { restaurant ->
-                RestaurantCard(restaurant = restaurant)
+                RestaurantCard(
+                    restaurant = restaurant,
+                    onClick = { onRestaurantClick(restaurant) }
+                )
             }
         }
     }
@@ -446,10 +496,13 @@ fun RestaurantList(
 @Composable
 fun RestaurantCard(
     restaurant: Restaurant,
+    onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     Card(
-        modifier = modifier.fillMaxWidth(),
+        modifier = modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surface

@@ -57,7 +57,7 @@ class PlacesService(context: Context, private val apiKey: String) {
                 .url(url)
                 .post(requestBody.toRequestBody("application/json".toMediaType()))
                 .addHeader("X-Goog-Api-Key", apiKey)
-                .addHeader("X-Goog-FieldMask", "places.id,places.displayName,places.formattedAddress,places.location,places.rating,places.priceLevel,places.types,places.photos")
+                .addHeader("X-Goog-FieldMask", "places.id,places.displayName,places.formattedAddress,places.location,places.rating,places.priceLevel,places.types,places.photos,places.websiteUri,places.googleMapsUri")
                 .build()
 
             val response = httpClient.newCall(request).execute()
@@ -106,7 +106,9 @@ class PlacesService(context: Context, private val apiKey: String) {
                     isSponsored = false,
                     hasStudentDiscount = false, // Would need external data source
                     nearTTC = TransitHelper.isTransitAccessible(restaurantLatLng),
-                    averagePrice = estimateAveragePrice(parsePriceLevel(place.priceLevel))
+                    averagePrice = estimateAveragePrice(parsePriceLevel(place.priceLevel)),
+                    websiteUrl = place.websiteUri,
+                    googleMapsUrl = place.googleMapsUri
                 )
             } ?: emptyList()
 
@@ -193,7 +195,9 @@ data class NewPlaceResult(
     val rating: Double?,
     val priceLevel: String?,
     val types: List<String>?,
-    val photos: List<NewPlacePhoto>?
+    val photos: List<NewPlacePhoto>?,
+    val websiteUri: String?,
+    val googleMapsUri: String?
 )
 
 data class DisplayName(
