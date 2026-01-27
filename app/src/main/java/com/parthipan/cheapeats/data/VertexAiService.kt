@@ -57,6 +57,10 @@ Time-aware suggestions:
 TTC proximity rules:
 - Under 5 min walk from TTC: Explicitly mention this (e.g., "3 min walk from Dundas station")
 - Over 10 min walk from TTC: Stay silent about TTC - don't mention it at all
+
+Chain restaurant rules:
+- Avoid recommending chains (McDonald's, Subway, Tim Hortons, Starbucks, etc.) unless they genuinely have filling meals under $15 CAD
+- Prefer local Toronto spots over chains when both options exist
 """
     }
 

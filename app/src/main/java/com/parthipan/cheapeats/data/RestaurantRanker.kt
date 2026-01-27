@@ -38,11 +38,28 @@ object RestaurantRanker {
         excludeClosed: Boolean = true,
         requireUnder15: Boolean = false
     ): List<RankedRestaurant> {
-        return restaurants
+        val ranked = restaurants
             .filter { !excludeClosed || it.isOpenNow != false } // Exclude closed, keep unknown
             .filter { !requireUnder15 || it.isUnder15 || it.averagePrice == null } // Keep if under $15 or unknown
             .map { calculateScore(it) }
             .sortedByDescending { it.score }
+            .toMutableList()
+
+        // Never rank UNKNOWN data freshness as #1
+        // If #1 has unknown freshness and there's a verified option, swap them
+        if (ranked.size > 1 &&
+            ranked[0].restaurant.dataFreshness == DataFreshness.UNKNOWN) {
+            val firstVerified = ranked.indexOfFirst {
+                it.restaurant.dataFreshness != DataFreshness.UNKNOWN
+            }
+            if (firstVerified > 0) {
+                val temp = ranked[0]
+                ranked[0] = ranked[firstVerified]
+                ranked[firstVerified] = temp
+            }
+        }
+
+        return ranked
     }
 
     /**

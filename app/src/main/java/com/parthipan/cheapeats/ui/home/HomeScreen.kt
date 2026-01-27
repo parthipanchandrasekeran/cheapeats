@@ -266,7 +266,7 @@ fun HomeScreen(
         }
     }
 
-    // Debounced AI search
+    // Debounced smart search
     LaunchedEffect(searchQuery, restaurants) {
         if (searchQuery.isBlank()) {
             searchFilteredRestaurants = restaurants
@@ -425,7 +425,7 @@ fun HomeScreen(
                     placeholder = {
                         Text(
                             if (vertexAiService != null)
-                                "Ask AI: \"cheap Mexican food\"..."
+                                "Try: \"cheap Mexican food\"..."
                             else
                                 "Search restaurants..."
                         )
@@ -463,7 +463,7 @@ fun HomeScreen(
                     modifier = Modifier.fillMaxWidth()
                 )
 
-                // AI Recommendation card
+                // Quick Pick card
                 aiRecommendation?.let { recommendation ->
                     Card(
                         modifier = Modifier
@@ -475,7 +475,7 @@ fun HomeScreen(
                     ) {
                         Column(modifier = Modifier.padding(12.dp)) {
                             Text(
-                                text = "AI Recommendation",
+                                text = "Quick Pick",
                                 style = MaterialTheme.typography.labelMedium,
                                 fontWeight = FontWeight.Bold,
                                 color = MaterialTheme.colorScheme.onSecondaryContainer
