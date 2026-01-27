@@ -20,9 +20,16 @@ The app follows **MVVM (Model-View-ViewModel)** architecture with clean separati
 app/src/main/java/com/parthipan/cheapeats/
 ├── MainActivity.kt                    # Entry point
 ├── data/                              # Business logic & data models
+│   ├── Restaurant.kt                  # Restaurant data model
+│   ├── RestaurantRanker.kt            # Ranking algorithm
+│   ├── FavoritesManager.kt            # Favorites persistence
+│   ├── PlacesService.kt               # Google Places API
+│   ├── VertexAiService.kt             # AI recommendations
+│   ├── TransitHelper.kt               # TTC station data
+│   └── BillingService.kt              # In-app purchases
 ├── database/                          # Room persistence layer
 └── ui/                                # Jetpack Compose UI
-    ├── home/                          # Main screen
+    ├── home/                          # Main screen with list
     ├── filter/                        # Filter components
     ├── detail/                        # Restaurant detail
     ├── map/                           # Map view
@@ -38,6 +45,7 @@ app/src/main/java/com/parthipan/cheapeats/
 - 1.5km radius search from user location
 - Returns up to 20 nearby restaurants
 - Displays rating, price level, cuisine type, distance
+- Restaurant photos loaded via Coil image library
 
 ### 2. AI-Powered Search
 - Vertex AI (Gemini 1.5 Flash) integration
@@ -70,7 +78,27 @@ app/src/main/java/com/parthipan/cheapeats/
 - "View Full Menu" / "Find Menu" web links
 - Google Maps directions integration
 
-### 7. Monetization
+### 7. Favorites
+- Heart icon on restaurant cards to toggle favorites
+- Persisted via SharedPreferences
+- Favorites receive 15% ranking boost (when open and under $15)
+- AI recommendations prefer favorites during busy times
+
+### 8. Price Confidence Indicators
+Shown in restaurant detail screen only:
+| Data Freshness | Label | Supporting Text |
+|----------------|-------|-----------------|
+| LIVE | Price verified | Checked just now |
+| RECENT | Price verified | Updated within the hour |
+| CACHED | Price may vary | Last checked a while ago |
+| UNKNOWN | Price unverified | Confirm before ordering |
+
+### 9. Time-Aware Ranking
+- **Lunch hours (11 AM - 2 PM):** TTC proximity weighted 45%, rating 20%
+- **Other times:** Default weights (TTC 30%, rating 30%)
+- Prioritizes speed and convenience during lunch
+
+### 10. Monetization
 - Optional "Thank the Developer" tips
 - Google Play Billing integration
 - Three tiers: Small ($1.99), Medium ($4.99), Large ($9.99)
@@ -90,6 +118,7 @@ data class Restaurant(
     val distance: Float,              // miles
     val location: LatLng,
     val address: String,
+    val imageUrl: String?,            // Google Places photo URL
     val isSponsored: Boolean,
     val hasStudentDiscount: Boolean,
     val nearTTC: Boolean,
@@ -98,7 +127,8 @@ data class Restaurant(
     val ttcWalkMinutes: Int?,
     val nearestStation: String?,
     val dataFreshness: DataFreshness,
-    val lastVerified: Long?
+    val lastVerified: Long?,
+    val isFavorite: Boolean           // user marked as favorite
 )
 ```
 
@@ -174,12 +204,29 @@ Toronto TTC subway network database.
 - LRU cache for performance
 
 ### RestaurantRanker
-Multi-factor ranking algorithm.
+Multi-factor ranking algorithm with time-aware optimization.
 
-**Scoring Weights:**
+**Default Scoring Weights:**
 - Value (40%) - Lower price = higher score
 - TTC Proximity (30%) - Closer to station = higher score
 - Rating (30%) - Higher rating = higher score
+
+**Lunch Hour Weights (11 AM - 2 PM):**
+- Value (35%) - Slightly reduced
+- TTC Proximity (45%) - Prioritized for quick access
+- Rating (20%) - Reduced (reliability over novelty)
+
+**Additional Modifiers:**
+- Favorite boost: 1.15x (if open and under $15)
+- Never ranks UNKNOWN data freshness as #1
+
+### FavoritesManager
+Manages user favorites with SharedPreferences.
+
+**Features:**
+- Reactive StateFlow for UI updates
+- Toggle, add, remove operations
+- Applies favorite status to restaurant lists
 
 ---
 
@@ -208,8 +255,9 @@ Multi-factor ranking algorithm.
 Main application screen with:
 - Search field (OutlinedTextField)
 - Filter bar (horizontal chips)
-- Restaurant list (LazyColumn)
-- AI recommendation card
+- Restaurant list (LazyColumn) with photo cards
+- Favorite heart icon on each restaurant card
+- AI recommendation card ("Quick Pick")
 - View mode toggle (List/Map)
 - Three-dot menu with tip option
 - First-time user tip banner
@@ -223,6 +271,7 @@ Horizontal scrollable filter chips:
 ### RestaurantDetailScreen
 Detail view with:
 - Restaurant header (cuisine, rating, price)
+- Price confidence indicator (subtle text based on data freshness)
 - Action buttons (Menu, Directions)
 - Dish list with price badges
 
@@ -287,6 +336,9 @@ billing = "7.0.0"
 # Networking
 okhttp = "4.12.0"
 gson = "2.10.1"
+
+# Image Loading
+coil = "2.5.0"
 ```
 
 ---
@@ -337,7 +389,7 @@ gson = "2.10.1"
 ## Future Considerations
 
 - Real menu data integration
-- User favorites and history
+- User history tracking
 - Push notifications for deals
 - Social sharing
 - Multi-city expansion
@@ -350,7 +402,8 @@ gson = "2.10.1"
 | Version | Changes |
 |---------|---------|
 | 1.0.0 | Initial release with core features |
+| 1.1.0 | Added favorites, restaurant photos, price confidence indicators, time-aware ranking |
 
 ---
 
-*Last Updated: January 2026*
+*Last Updated: January 27, 2026*

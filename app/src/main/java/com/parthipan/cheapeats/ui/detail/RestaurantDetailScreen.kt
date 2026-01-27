@@ -49,6 +49,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.parthipan.cheapeats.data.DataFreshness
 import com.parthipan.cheapeats.data.Dish
 import com.parthipan.cheapeats.data.Restaurant
 import com.parthipan.cheapeats.data.SampleDishes
@@ -196,6 +197,22 @@ private fun RestaurantInfoHeader(restaurant: Restaurant) {
                         color = MaterialTheme.colorScheme.primary
                     )
                 }
+            }
+
+            // Price confidence indicator (subtle)
+            if (restaurant.averagePrice != null) {
+                val (confidenceText, supportingText) = when (restaurant.dataFreshness) {
+                    DataFreshness.LIVE -> "Price verified" to "Checked just now"
+                    DataFreshness.RECENT -> "Price verified" to "Updated within the hour"
+                    DataFreshness.CACHED -> "Price may vary" to "Last checked a while ago"
+                    DataFreshness.UNKNOWN -> "Price unverified" to "Confirm before ordering"
+                }
+                Spacer(modifier = Modifier.height(6.dp))
+                Text(
+                    text = "$confidenceText · $supportingText",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+                )
             }
 
             Spacer(modifier = Modifier.height(12.dp))

@@ -25,6 +25,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Search
@@ -81,6 +82,7 @@ import com.google.android.gms.location.Priority
 import com.google.android.gms.maps.model.LatLng
 import com.google.android.gms.tasks.CancellationTokenSource
 import com.parthipan.cheapeats.data.BillingService
+import com.parthipan.cheapeats.data.FavoritesManager
 import com.parthipan.cheapeats.data.PlacesService
 import com.parthipan.cheapeats.data.PurchaseState
 import com.parthipan.cheapeats.data.Restaurant
@@ -151,6 +153,10 @@ fun HomeScreen(
     val billingService = remember { BillingService(context) }
     val tipProducts by billingService.tipProducts.collectAsState()
     val purchaseState by billingService.purchaseState.collectAsState()
+
+    // Favorites manager
+    val favoritesManager = remember { FavoritesManager(context) }
+    val favoriteIds by favoritesManager.favoriteIds.collectAsState()
 
     // Initialize billing on start
     DisposableEffect(Unit) {
@@ -551,9 +557,16 @@ fun HomeScreen(
                             }
                         }
                     } else {
+                        // Apply favorites to displayed restaurants
+                        val restaurantsWithFavorites = displayedRestaurants.map { restaurant ->
+                            restaurant.copy(isFavorite = restaurant.id in favoriteIds)
+                        }
                         RestaurantList(
-                            restaurants = displayedRestaurants,
+                            restaurants = restaurantsWithFavorites,
                             onRestaurantClick = onRestaurantClick,
+                            onFavoriteToggle = { restaurantId ->
+                                favoritesManager.toggleFavorite(restaurantId)
+                            },
                             modifier = Modifier.fillMaxSize()
                         )
                     }
@@ -704,6 +717,7 @@ private suspend fun getCurrentLocation(context: Context): Location? {
 fun RestaurantList(
     restaurants: List<Restaurant>,
     onRestaurantClick: (Restaurant) -> Unit,
+    onFavoriteToggle: (String) -> Unit,
     modifier: Modifier = Modifier
 ) {
     if (restaurants.isEmpty()) {
@@ -737,7 +751,8 @@ fun RestaurantList(
             items(restaurants, key = { it.id }) { restaurant ->
                 RestaurantCard(
                     restaurant = restaurant,
-                    onClick = { onRestaurantClick(restaurant) }
+                    onClick = { onRestaurantClick(restaurant) },
+                    onFavoriteToggle = { onFavoriteToggle(restaurant.id) }
                 )
             }
         }
@@ -748,6 +763,7 @@ fun RestaurantList(
 fun RestaurantCard(
     restaurant: Restaurant,
     onClick: () -> Unit,
+    onFavoriteToggle: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     Card(
@@ -765,12 +781,12 @@ fun RestaurantCard(
                 .padding(12.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
+            // Restaurant image with favorite icon overlay
             Box(
                 modifier = Modifier
                     .size(80.dp)
                     .clip(RoundedCornerShape(8.dp))
-                    .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.2f)),
-                contentAlignment = Alignment.Center
+                    .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.2f))
             ) {
                 if (restaurant.imageUrl != null) {
                     AsyncImage(
@@ -783,11 +799,35 @@ fun RestaurantCard(
                         modifier = Modifier.fillMaxSize()
                     )
                 } else {
-                    Text(
-                        text = restaurant.name.take(1),
-                        style = MaterialTheme.typography.headlineMedium,
-                        color = MaterialTheme.colorScheme.primary,
-                        fontWeight = FontWeight.Bold
+                    Box(
+                        modifier = Modifier.fillMaxSize(),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = restaurant.name.take(1),
+                            style = MaterialTheme.typography.headlineMedium,
+                            color = MaterialTheme.colorScheme.primary,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
+
+                // Favorite heart icon with background for visibility
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        .padding(4.dp)
+                        .size(28.dp)
+                        .clip(RoundedCornerShape(14.dp))
+                        .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.85f))
+                        .clickable { onFavoriteToggle() },
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = if (restaurant.isFavorite) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
+                        contentDescription = if (restaurant.isFavorite) "Remove from favorites" else "Add to favorites",
+                        tint = if (restaurant.isFavorite) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.size(18.dp)
                     )
                 }
             }

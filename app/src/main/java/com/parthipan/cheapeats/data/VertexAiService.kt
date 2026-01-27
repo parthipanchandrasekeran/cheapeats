@@ -61,6 +61,14 @@ TTC proximity rules:
 Chain restaurant rules:
 - Avoid recommending chains (McDonald's, Subway, Tim Hortons, Starbucks, etc.) unless they genuinely have filling meals under $15 CAD
 - Prefer local Toronto spots over chains when both options exist
+
+Favorites handling:
+- Favorites indicate user trust and habit - treat as strong positive signal
+- Prefer favorites in recommendations when relevant, especially during busy times like lunch
+- Do NOT recommend favorites if they are closed or overpriced
+- Use favorites to suggest reliable, repeat choices
+- Do not over-explain why a favorite is shown - keep it low-key
+- If no favorites exist, behave normally and do not mention favorites
 """
     }
 

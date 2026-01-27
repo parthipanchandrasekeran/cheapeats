@@ -23,7 +23,8 @@ data class Restaurant(
     val ttcWalkMinutes: Int? = null, // Walking time from nearest station in minutes
     val nearestStation: String? = null, // Nearest TTC station name
     val dataFreshness: DataFreshness = DataFreshness.UNKNOWN, // Data trust level
-    val lastVerified: Long? = null // Timestamp when data was last verified
+    val lastVerified: Long? = null, // Timestamp when data was last verified
+    val isFavorite: Boolean = false // User marked as favorite
 ) {
     // Convenience properties for backwards compatibility
     val latitude: Double get() = location.latitude

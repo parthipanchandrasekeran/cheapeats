@@ -1,5 +1,7 @@
 package com.parthipan.cheapeats.data
 
+import java.util.Calendar
+
 /**
  * Represents a restaurant with its calculated ranking score and descriptive info.
  */
@@ -13,16 +15,33 @@ data class RankedRestaurant(
 /**
  * Ranking and filtering logic for restaurants.
  * Implements multi-factor ranking based on value, TTC proximity, and rating.
+ * Time-aware: During lunch hours (11 AM - 2 PM), prioritizes speed and TTC proximity.
  */
 object RestaurantRanker {
 
-    // Scoring weights
+    // Default scoring weights
     private const val VALUE_WEIGHT = 0.4f
     private const val TTC_WEIGHT = 0.3f
     private const val RATING_WEIGHT = 0.3f
 
+    // Lunch hour weights (11 AM - 2 PM): prioritize TTC proximity over rating
+    private const val LUNCH_VALUE_WEIGHT = 0.35f
+    private const val LUNCH_TTC_WEIGHT = 0.45f
+    private const val LUNCH_RATING_WEIGHT = 0.20f
+
+    // Favorite boost (applied as multiplier to score)
+    private const val FAVORITE_BOOST = 1.15f
+
     // Walking speed in meters per minute (average walking pace)
     private const val WALKING_SPEED_M_PER_MIN = 80f
+
+    /**
+     * Check if current time is during lunch hours (11 AM - 2 PM).
+     */
+    private fun isLunchHours(): Boolean {
+        val hour = Calendar.getInstance().get(Calendar.HOUR_OF_DAY)
+        return hour in 11..13 // 11:00 AM to 1:59 PM
+    }
 
     /**
      * Rank restaurants using multi-factor scoring.
@@ -65,15 +84,34 @@ object RestaurantRanker {
     /**
      * Calculate the composite score for a restaurant.
      * Score is based on value (price), TTC proximity, and rating.
+     * During lunch hours: TTC proximity weighted higher for quick access.
+     * Favorites get a boost if they're open and reasonably priced.
      */
     private fun calculateScore(restaurant: Restaurant): RankedRestaurant {
         val valueScore = calculateValueScore(restaurant)
         val ttcScore = calculateTTCScore(restaurant)
         val ratingScore = restaurant.rating / 5f
 
-        val totalScore = (valueScore * VALUE_WEIGHT) +
-                         (ttcScore * TTC_WEIGHT) +
-                         (ratingScore * RATING_WEIGHT)
+        // Use lunch-optimized weights during 11 AM - 2 PM
+        val (vWeight, tWeight, rWeight) = if (isLunchHours()) {
+            Triple(LUNCH_VALUE_WEIGHT, LUNCH_TTC_WEIGHT, LUNCH_RATING_WEIGHT)
+        } else {
+            Triple(VALUE_WEIGHT, TTC_WEIGHT, RATING_WEIGHT)
+        }
+
+        var totalScore = (valueScore * vWeight) +
+                         (ttcScore * tWeight) +
+                         (ratingScore * rWeight)
+
+        // Apply favorite boost only if:
+        // - Restaurant is a favorite
+        // - Not known to be closed
+        // - Not overpriced (under $15 or unknown)
+        if (restaurant.isFavorite &&
+            restaurant.isOpenNow != false &&
+            (restaurant.isUnder15 || restaurant.averagePrice == null)) {
+            totalScore *= FAVORITE_BOOST
+        }
 
         return RankedRestaurant(
             restaurant = restaurant,
