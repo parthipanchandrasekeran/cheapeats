@@ -24,14 +24,11 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.LocationOn
-import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -50,6 +47,7 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -80,9 +78,11 @@ import com.parthipan.cheapeats.ui.filter.FilterBar
 import com.parthipan.cheapeats.ui.filter.FilterViewModel
 import com.parthipan.cheapeats.ui.map.MapScreen
 import com.parthipan.cheapeats.ui.theme.CheapEatsTheme
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
+import kotlinx.coroutines.withContext
 
 enum class ViewMode {
     LIST, MAP
@@ -105,8 +105,9 @@ fun HomeScreen(
     var viewMode by remember { mutableStateOf(ViewMode.LIST) }
     var isSearching by remember { mutableStateOf(false) }
     var isLoadingRestaurants by remember { mutableStateOf(true) }
-    var restaurants by remember { mutableStateOf<List<Restaurant>>(emptyList()) }
-    var searchFilteredRestaurants by remember { mutableStateOf<List<Restaurant>>(emptyList()) }
+    // Show sample data immediately while real data loads
+    var restaurants by remember { mutableStateOf(sampleRestaurants) }
+    var searchFilteredRestaurants by remember { mutableStateOf(sampleRestaurants) }
     var aiRecommendation by remember { mutableStateOf<String?>(null) }
     var userLocation by remember { mutableStateOf<LatLng?>(null) }
     var locationError by remember { mutableStateOf<String?>(null) }
@@ -115,9 +116,6 @@ fun HomeScreen(
     // Navigation state for restaurant detail
     var selectedRestaurant by remember { mutableStateOf<Restaurant?>(null) }
 
-    // Menu state
-    var showMenu by remember { mutableStateOf(false) }
-    var isGeneratingLogo by remember { mutableStateOf(false) }
 
     // Collect filter state
     val filterState by filterViewModel.filterState.collectAsState()
@@ -140,9 +138,11 @@ fun HomeScreen(
         }
     }
 
-    // Apply both search and chip filters
-    val displayedRestaurants = remember(searchFilteredRestaurants, filterState) {
-        FilterViewModel.applyFilters(searchFilteredRestaurants, filterState)
+    // Apply both search and chip filters - use derivedStateOf for efficient recomposition
+    val displayedRestaurants by remember {
+        derivedStateOf {
+            FilterViewModel.applyFilters(searchFilteredRestaurants, filterState)
+        }
     }
 
     val locationPermissions = rememberMultiplePermissionsState(
@@ -162,8 +162,10 @@ fun HomeScreen(
     // Fetch location and restaurants when permissions granted
     LaunchedEffect(locationPermissions.allPermissionsGranted) {
         if (locationPermissions.allPermissionsGranted) {
-            isLoadingRestaurants = true
+            // Show sample data immediately, mark as not loading to show UI fast
+            isLoadingRestaurants = false
             locationError = null
+
             try {
                 // TODO: TESTING - Using Toronto downtown location. Remove for production!
                 // Downtown Toronto near Dundas Station
@@ -171,7 +173,10 @@ fun HomeScreen(
                 val testLongitude = -79.3802
                 val useTestLocation = false // Set to true for test location
 
-                val location = if (useTestLocation) null else getCurrentLocation(context)
+                // Get location in background
+                val location = withContext(Dispatchers.IO) {
+                    if (useTestLocation) null else getCurrentLocation(context)
+                }
                 val finalLatitude = location?.latitude ?: testLatitude
                 val finalLongitude = location?.longitude ?: testLongitude
 
@@ -180,27 +185,24 @@ fun HomeScreen(
                 // Check if user is in Toronto area for TTC filter
                 isInTorontoArea = TransitHelper.isInTorontoArea(finalLatitude, finalLongitude)
 
-                // Fetch real restaurants if PlacesService available
+                // Fetch real restaurants if PlacesService available (in background)
                 if (placesService != null) {
-                    val nearbyRestaurants = placesService.searchNearbyRestaurants(
-                        LatLng(finalLatitude, finalLongitude)
-                    )
-                    restaurants = nearbyRestaurants.ifEmpty { sampleRestaurants }
-                    searchFilteredRestaurants = restaurants
-                } else {
-                    restaurants = sampleRestaurants
-                    searchFilteredRestaurants = restaurants
+                    val nearbyRestaurants = withContext(Dispatchers.IO) {
+                        placesService.searchNearbyRestaurants(
+                            LatLng(finalLatitude, finalLongitude)
+                        )
+                    }
+                    if (nearbyRestaurants.isNotEmpty()) {
+                        restaurants = nearbyRestaurants
+                        searchFilteredRestaurants = restaurants
+                    }
                 }
             } catch (e: Exception) {
                 locationError = "Error: ${e.message}"
-                restaurants = sampleRestaurants
-                searchFilteredRestaurants = restaurants
+                // Keep showing sample data on error
             }
-            isLoadingRestaurants = false
         } else {
             isLoadingRestaurants = false
-            restaurants = sampleRestaurants
-            searchFilteredRestaurants = restaurants
         }
     }
 
@@ -212,14 +214,14 @@ fun HomeScreen(
             return@LaunchedEffect
         }
 
-        delay(500)
+        delay(800) // Increased debounce for better performance
 
         if (vertexAiService != null && restaurants.isNotEmpty()) {
             isSearching = true
             try {
                 searchFilteredRestaurants = vertexAiService.getSearchSuggestions(searchQuery, restaurants)
 
-                if (searchQuery.length > 10) {
+                if (searchQuery.length > 15) {
                     aiRecommendation = vertexAiService.getRestaurantRecommendation(searchQuery, restaurants)
                 }
             } finally {
@@ -280,55 +282,6 @@ fun HomeScreen(
                                 "Switch to List View"
                             }
                         )
-                    }
-                    Box {
-                        IconButton(onClick = { showMenu = true }) {
-                            if (isGeneratingLogo) {
-                                CircularProgressIndicator(
-                                    modifier = Modifier.size(24.dp),
-                                    strokeWidth = 2.dp,
-                                    color = MaterialTheme.colorScheme.onPrimary
-                                )
-                            } else {
-                                Icon(
-                                    imageVector = Icons.Default.Menu,
-                                    contentDescription = "Menu"
-                                )
-                            }
-                        }
-                        DropdownMenu(
-                            expanded = showMenu,
-                            onDismissRequest = { showMenu = false }
-                        ) {
-                            DropdownMenuItem(
-                                text = { Text("Generate Logo") },
-                                onClick = {
-                                    showMenu = false
-                                    if (vertexAiService != null) {
-                                        isGeneratingLogo = true
-                                        scope.launch {
-                                            try {
-                                                val logoPrompt = "A modern minimalist app logo for CheapEats, a Toronto food deals app. Features: CN Tower silhouette, maple leaf accent, fork and knife, warm orange and red colors, clean flat design, no text, square format, professional app icon style"
-                                                val logoPath = vertexAiService.generateLogo(logoPrompt)
-                                                if (logoPath != null) {
-                                                    snackbarHostState.showSnackbar("Logo saved to: $logoPath")
-                                                } else {
-                                                    snackbarHostState.showSnackbar("Failed to generate logo")
-                                                }
-                                            } catch (e: Exception) {
-                                                snackbarHostState.showSnackbar("Error: ${e.message}")
-                                            } finally {
-                                                isGeneratingLogo = false
-                                            }
-                                        }
-                                    } else {
-                                        scope.launch {
-                                            snackbarHostState.showSnackbar("Vertex AI service not available")
-                                        }
-                                    }
-                                }
-                            )
-                        }
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(

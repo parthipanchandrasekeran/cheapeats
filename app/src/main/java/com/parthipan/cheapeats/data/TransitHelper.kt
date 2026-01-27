@@ -13,7 +13,8 @@ data class SubwayStation(
 )
 
 /**
- * Helper object for transit-related calculations
+ * Helper object for transit-related calculations.
+ * Uses caching and spatial optimization for performance.
  */
 object TransitHelper {
 
@@ -25,6 +26,27 @@ object TransitHelper {
     private const val GTA_MAX_LAT = 44.0
     private const val GTA_MIN_LNG = -79.8
     private const val GTA_MAX_LNG = -79.0
+
+    // Cache for nearest station lookups (location key -> result)
+    // Using a simple LRU-style cache with max 100 entries
+    private val nearestStationCache = object : LinkedHashMap<String, Pair<SubwayStation, Float>?>(100, 0.75f, true) {
+        override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, Pair<SubwayStation, Float>?>?): Boolean {
+            return size > 100
+        }
+    }
+
+    // Approximate degrees per meter at Toronto's latitude (~0.00001 per meter)
+    private const val DEGREES_PER_METER = 0.000009
+
+    // Pre-computed bounding box radius in degrees for quick filtering (600m ~ 0.0054 degrees)
+    private const val QUICK_FILTER_DEGREES = 0.006
+
+    private fun locationKey(location: LatLng): String {
+        // Round to ~10m precision for cache efficiency
+        val latKey = (location.latitude * 10000).toInt()
+        val lngKey = (location.longitude * 10000).toInt()
+        return "$latKey,$lngKey"
+    }
 
     /**
      * Checks if a location is within the Greater Toronto Area.
@@ -162,7 +184,7 @@ object TransitHelper {
 
     /**
      * Calculates if a restaurant's coordinates are within a specified radius
-     * of any TTC subway station.
+     * of any TTC subway station. Uses cached nearest station for efficiency.
      *
      * @param restaurantLocation The LatLng coordinates of the restaurant
      * @param radiusMeters The radius in meters to check (default: 500m)
@@ -174,13 +196,14 @@ object TransitHelper {
         radiusMeters: Double = DEFAULT_TRANSIT_RADIUS_METERS,
         stations: List<SubwayStation> = allSubwayStations
     ): Boolean {
-        return stations.any { station ->
-            calculateDistanceMeters(restaurantLocation, station.location) <= radiusMeters
-        }
+        // Use cached nearest station to avoid redundant calculations
+        val nearest = findNearestStation(restaurantLocation, stations)
+        return nearest != null && nearest.second <= radiusMeters
     }
 
     /**
      * Finds the nearest subway station to the given location.
+     * Uses caching and bounding box pre-filtering for performance.
      *
      * @param location The LatLng coordinates to check
      * @param stations The list of subway stations to search (default: all stations)
@@ -190,9 +213,38 @@ object TransitHelper {
         location: LatLng,
         stations: List<SubwayStation> = allSubwayStations
     ): Pair<SubwayStation, Float>? {
-        return stations
-            .map { station -> station to calculateDistanceMeters(location, station.location) }
-            .minByOrNull { it.second }
+        // Check cache first
+        val key = locationKey(location)
+        nearestStationCache[key]?.let { return it }
+
+        // Quick bounding box filter - only check stations within ~600m box
+        val nearbyStations = stations.filter { station ->
+            kotlin.math.abs(station.location.latitude - location.latitude) < QUICK_FILTER_DEGREES &&
+            kotlin.math.abs(station.location.longitude - location.longitude) < QUICK_FILTER_DEGREES
+        }
+
+        // If no stations in quick filter, fall back to full search but with early exit
+        val result = if (nearbyStations.isNotEmpty()) {
+            nearbyStations
+                .map { station -> station to calculateDistanceMeters(location, station.location) }
+                .minByOrNull { it.second }
+        } else {
+            // Full search - find minimum without creating full list
+            var minStation: SubwayStation? = null
+            var minDistance = Float.MAX_VALUE
+            for (station in stations) {
+                val distance = calculateDistanceMeters(location, station.location)
+                if (distance < minDistance) {
+                    minDistance = distance
+                    minStation = station
+                }
+            }
+            minStation?.let { it to minDistance }
+        }
+
+        // Cache the result
+        nearestStationCache[key] = result
+        return result
     }
 
     /**

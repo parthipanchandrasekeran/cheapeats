@@ -18,11 +18,36 @@ class PlacesService(context: Context, private val apiKey: String) {
 
     companion object {
         private const val TAG = "PlacesService"
+
+        // Pre-computed cuisine type map for O(1) lookup
+        private val cuisineTypeMap = mapOf(
+            "chinese_restaurant" to "Chinese",
+            "italian_restaurant" to "Italian",
+            "japanese_restaurant" to "Japanese",
+            "mexican_restaurant" to "Mexican",
+            "indian_restaurant" to "Indian",
+            "thai_restaurant" to "Thai",
+            "vietnamese_restaurant" to "Vietnamese",
+            "korean_restaurant" to "Korean",
+            "american_restaurant" to "American",
+            "mediterranean_restaurant" to "Mediterranean",
+            "pizza" to "Pizza",
+            "seafood" to "Seafood",
+            "steak_house" to "Steakhouse",
+            "sushi" to "Sushi",
+            "cafe" to "Cafe",
+            "fast_food" to "Fast Food",
+            "bakery" to "Bakery",
+            "bar" to "Bar & Grill",
+            "meal_takeaway" to "Takeaway",
+            "meal_delivery" to "Delivery"
+        )
     }
 
     private val httpClient = OkHttpClient.Builder()
-        .connectTimeout(30, TimeUnit.SECONDS)
-        .readTimeout(30, TimeUnit.SECONDS)
+        .connectTimeout(10, TimeUnit.SECONDS)  // Reduced from 30s
+        .readTimeout(15, TimeUnit.SECONDS)     // Reduced from 30s
+        .retryOnConnectionFailure(true)
         .build()
 
     private val gson = Gson()
@@ -173,29 +198,11 @@ class PlacesService(context: Context, private val apiKey: String) {
     }
 
     private fun getCuisineType(types: List<String>): String {
-        return when {
-            types.contains("chinese_restaurant") -> "Chinese"
-            types.contains("italian_restaurant") -> "Italian"
-            types.contains("japanese_restaurant") -> "Japanese"
-            types.contains("mexican_restaurant") -> "Mexican"
-            types.contains("indian_restaurant") -> "Indian"
-            types.contains("thai_restaurant") -> "Thai"
-            types.contains("vietnamese_restaurant") -> "Vietnamese"
-            types.contains("korean_restaurant") -> "Korean"
-            types.contains("american_restaurant") -> "American"
-            types.contains("mediterranean_restaurant") -> "Mediterranean"
-            types.contains("pizza") -> "Pizza"
-            types.contains("seafood") -> "Seafood"
-            types.contains("steak_house") -> "Steakhouse"
-            types.contains("sushi") -> "Sushi"
-            types.contains("cafe") -> "Cafe"
-            types.contains("fast_food") -> "Fast Food"
-            types.contains("bakery") -> "Bakery"
-            types.contains("bar") -> "Bar & Grill"
-            types.contains("meal_takeaway") -> "Takeaway"
-            types.contains("meal_delivery") -> "Delivery"
-            else -> "Restaurant"
+        // O(n) where n = types.size, instead of O(n * m) where m = cuisineTypes
+        for (type in types) {
+            cuisineTypeMap[type]?.let { return it }
         }
+        return "Restaurant"
     }
 
     private fun calculateDistance(

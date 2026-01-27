@@ -47,6 +47,7 @@ import com.google.maps.android.clustering.view.DefaultClusterRenderer
 import com.google.maps.android.compose.GoogleMap
 import com.google.maps.android.compose.MapEffect
 import com.google.maps.android.compose.MapProperties
+import com.google.maps.android.compose.MapUiSettings
 import com.google.maps.android.compose.MapsComposeExperimentalApi
 import com.google.maps.android.compose.rememberCameraPositionState
 import com.parthipan.cheapeats.data.Restaurant
@@ -66,7 +67,8 @@ class RestaurantClusterItem(
 
 /**
  * Custom cluster renderer that shows gold markers for sponsored restaurants
- * and red markers for standard restaurants
+ * and red markers for standard restaurants.
+ * Uses icon caching for better performance.
  */
 class RestaurantClusterRenderer(
     private val context: Context,
@@ -79,14 +81,70 @@ class RestaurantClusterRenderer(
         private const val STANDARD_HUE = BitmapDescriptorFactory.HUE_RED
         // Sponsored marker color (gold/yellow)
         private const val SPONSORED_HUE = BitmapDescriptorFactory.HUE_YELLOW
+
+        // Cache for marker icons to avoid recreation
+        private val standardMarker: BitmapDescriptor by lazy {
+            BitmapDescriptorFactory.defaultMarker(STANDARD_HUE)
+        }
+        private val sponsoredMarker: BitmapDescriptor by lazy {
+            BitmapDescriptorFactory.defaultMarker(SPONSORED_HUE)
+        }
+
+        // Cache for cluster icons (size -> icon)
+        private val clusterIconCache = mutableMapOf<String, BitmapDescriptor>()
+        private const val CLUSTER_ICON_DIAMETER = 80 // Smaller for faster rendering
+
+        private fun getClusterIcon(size: Int, hasSponsored: Boolean): BitmapDescriptor {
+            val key = "${size}_$hasSponsored"
+            return clusterIconCache.getOrPut(key) {
+                createClusterIconBitmap(size, hasSponsored)
+            }
+        }
+
+        private fun createClusterIconBitmap(size: Int, hasSponsored: Boolean): BitmapDescriptor {
+            val diameter = CLUSTER_ICON_DIAMETER
+            val bitmap = Bitmap.createBitmap(diameter, diameter, Bitmap.Config.ARGB_8888)
+            val canvas = Canvas(bitmap)
+
+            val paint = Paint().apply {
+                isAntiAlias = true
+                color = if (hasSponsored) {
+                    Color.parseColor("#FFD700")
+                } else {
+                    Color.parseColor("#FF4444")
+                }
+                style = Paint.Style.FILL
+            }
+            canvas.drawCircle(diameter / 2f, diameter / 2f, diameter / 2f, paint)
+
+            paint.apply {
+                color = Color.WHITE
+                style = Paint.Style.STROKE
+                strokeWidth = 3f
+            }
+            canvas.drawCircle(diameter / 2f, diameter / 2f, diameter / 2f - 2f, paint)
+
+            paint.apply {
+                color = Color.WHITE
+                style = Paint.Style.FILL
+                textSize = 32f
+                textAlign = Paint.Align.CENTER
+                typeface = Typeface.DEFAULT_BOLD
+            }
+            val text = if (size > 99) "99+" else size.toString()
+            val textY = diameter / 2f - (paint.descent() + paint.ascent()) / 2
+            canvas.drawText(text, diameter / 2f, textY, paint)
+
+            return BitmapDescriptorFactory.fromBitmap(bitmap)
+        }
     }
 
     override fun onBeforeClusterItemRendered(
         item: RestaurantClusterItem,
         markerOptions: MarkerOptions
     ) {
-        val hue = if (item.restaurant.isSponsored) SPONSORED_HUE else STANDARD_HUE
-        markerOptions.icon(BitmapDescriptorFactory.defaultMarker(hue))
+        // Use cached markers
+        markerOptions.icon(if (item.restaurant.isSponsored) sponsoredMarker else standardMarker)
         markerOptions.title(item.title)
         markerOptions.snippet(item.snippet)
     }
@@ -95,49 +153,8 @@ class RestaurantClusterRenderer(
         cluster: Cluster<RestaurantClusterItem>,
         markerOptions: MarkerOptions
     ) {
-        // Check if cluster contains any sponsored restaurants
         val hasSponsored = cluster.items.any { it.restaurant.isSponsored }
-        val clusterIcon = createClusterIcon(cluster.size, hasSponsored)
-        markerOptions.icon(clusterIcon)
-    }
-
-    private fun createClusterIcon(size: Int, hasSponsored: Boolean): BitmapDescriptor {
-        val diameter = 100
-        val bitmap = Bitmap.createBitmap(diameter, diameter, Bitmap.Config.ARGB_8888)
-        val canvas = Canvas(bitmap)
-
-        // Draw circle with appropriate color
-        val paint = Paint().apply {
-            isAntiAlias = true
-            color = if (hasSponsored) {
-                Color.parseColor("#FFD700") // Gold for clusters with sponsored
-            } else {
-                Color.parseColor("#FF4444") // Red for standard clusters
-            }
-            style = Paint.Style.FILL
-        }
-        canvas.drawCircle(diameter / 2f, diameter / 2f, diameter / 2f, paint)
-
-        // Draw border
-        paint.apply {
-            color = Color.WHITE
-            style = Paint.Style.STROKE
-            strokeWidth = 4f
-        }
-        canvas.drawCircle(diameter / 2f, diameter / 2f, diameter / 2f - 2f, paint)
-
-        // Draw text
-        paint.apply {
-            color = Color.WHITE
-            style = Paint.Style.FILL
-            textSize = 40f
-            textAlign = Paint.Align.CENTER
-            typeface = Typeface.DEFAULT_BOLD
-        }
-        val textY = diameter / 2f - (paint.descent() + paint.ascent()) / 2
-        canvas.drawText(size.toString(), diameter / 2f, textY, paint)
-
-        return BitmapDescriptorFactory.fromBitmap(bitmap)
+        markerOptions.icon(getClusterIcon(cluster.size, hasSponsored))
     }
 }
 
@@ -196,7 +213,20 @@ fun MapScreen(
 
     val mapProperties = remember(locationPermissions.allPermissionsGranted) {
         MapProperties(
-            isMyLocationEnabled = locationPermissions.allPermissionsGranted
+            isMyLocationEnabled = locationPermissions.allPermissionsGranted,
+            isBuildingEnabled = false, // Disable 3D buildings for performance
+            isIndoorEnabled = false    // Disable indoor maps for performance
+        )
+    }
+
+    val mapUiSettings = remember {
+        MapUiSettings(
+            zoomControlsEnabled = true,     // Show zoom buttons
+            mapToolbarEnabled = false,      // Disable toolbar for faster rendering
+            myLocationButtonEnabled = true,
+            compassEnabled = true,
+            rotationGesturesEnabled = true,
+            tiltGesturesEnabled = false     // Disable tilt for performance
         )
     }
 
@@ -204,7 +234,8 @@ fun MapScreen(
         GoogleMap(
             modifier = Modifier.fillMaxSize(),
             cameraPositionState = cameraPositionState,
-            properties = mapProperties
+            properties = mapProperties,
+            uiSettings = mapUiSettings
         ) {
             // Set up clustering using MapEffect
             MapEffect(restaurants) { map ->
