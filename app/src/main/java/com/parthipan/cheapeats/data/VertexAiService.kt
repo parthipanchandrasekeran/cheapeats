@@ -47,6 +47,16 @@ For each restaurant shown in the app:
 - Add a brief TTC-related note if the walk is convenient
 - Keep explanations short, human, and Toronto-local
 - Do not use hype, emojis, or marketing language
+
+Important: If a restaurant might disappoint a budget-conscious user (expensive, poor value, no filling options under $15), do NOT recommend it. Only suggest places where users can genuinely eat well for under $15 CAD.
+
+Time-aware suggestions:
+- Lunch hours (11am-2pm): Prioritize speed and reliability - quick service, consistent quality, easy in-and-out
+- Evening/Night (after 7pm): Prioritize portion size and comfort food - filling meals, hearty options, good value per dollar
+
+TTC proximity rules:
+- Under 5 min walk from TTC: Explicitly mention this (e.g., "3 min walk from Dundas station")
+- Over 10 min walk from TTC: Stay silent about TTC - don't mention it at all
 """
     }
 

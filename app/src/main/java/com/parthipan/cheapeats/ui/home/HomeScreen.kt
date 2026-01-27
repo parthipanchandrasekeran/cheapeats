@@ -112,6 +112,18 @@ fun HomeScreen(
     val scope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
 
+    // First-time user tip
+    var showFirstTimeTip by remember { mutableStateOf(false) }
+
+    LaunchedEffect(Unit) {
+        val prefs = context.getSharedPreferences("cheapeats_prefs", Context.MODE_PRIVATE)
+        val isFirstLaunch = prefs.getBoolean("is_first_launch", true)
+        if (isFirstLaunch) {
+            showFirstTimeTip = true
+            prefs.edit().putBoolean("is_first_launch", false).apply()
+        }
+    }
+
     var searchQuery by remember { mutableStateOf("") }
     var isSearchActive by remember { mutableStateOf(false) }
     var viewMode by remember { mutableStateOf(ViewMode.LIST) }
@@ -215,11 +227,11 @@ fun HomeScreen(
             locationError = null
 
             try {
-                // TODO: TESTING - Using Toronto downtown location. Remove for production!
-                // Downtown Toronto near Dundas Station
-                val testLatitude = 43.6561
-                val testLongitude = -79.3802
-                val useTestLocation = false // Set to true for test location
+                // TODO: TESTING - Using Toronto location. Remove for production!
+                // Toronto Union Station
+                val testLatitude = 43.6453
+                val testLongitude = -79.3806
+                val useTestLocation = true // Set to true for test location
 
                 // Get location in background
                 val location = withContext(Dispatchers.IO) {
@@ -374,6 +386,38 @@ fun HomeScreen(
                 .padding(innerPadding)
         ) {
             if (viewMode == ViewMode.LIST) {
+                // First-time user tip
+                if (showFirstTimeTip) {
+                    Card(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 8.dp),
+                        colors = CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.primaryContainer
+                        )
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(12.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "Tip: CheapEats works best near TTC stations during lunch hours",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onPrimaryContainer,
+                                modifier = Modifier.weight(1f)
+                            )
+                            TextButton(
+                                onClick = { showFirstTimeTip = false }
+                            ) {
+                                Text("Got it")
+                            }
+                        }
+                    }
+                }
+
                 // Search Field
                 OutlinedTextField(
                     value = searchQuery,
