@@ -4,6 +4,15 @@ import androidx.room.Entity
 import androidx.room.PrimaryKey
 
 /**
+ * Theme mode options for the app.
+ */
+enum class ThemeMode {
+    SYSTEM,  // Follow system setting
+    LIGHT,   // Always light mode
+    DARK     // Always dark mode
+}
+
+/**
  * User settings stored in Room database.
  */
 @Entity(tableName = "user_settings")
@@ -13,7 +22,8 @@ data class UserSettings(
     val lowDataMode: Boolean = false,
     val cacheImagesOnWifi: Boolean = true,
     val maxCacheSizeMb: Int = 50,
-    val prefetchNearby: Boolean = true
+    val prefetchNearby: Boolean = true,
+    val themeMode: ThemeMode = ThemeMode.SYSTEM
 )
 
 /**

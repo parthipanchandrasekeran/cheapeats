@@ -100,7 +100,13 @@ import com.parthipan.cheapeats.ui.map.MapScreen
 import com.parthipan.cheapeats.ui.theme.CheapEatsTheme
 import android.content.Intent
 import android.net.Uri
+import androidx.compose.material.icons.filled.Settings
+import com.parthipan.cheapeats.data.database.AppDatabase
 import com.parthipan.cheapeats.data.lunchroute.RouteStart
+import com.parthipan.cheapeats.data.settings.CacheStats
+import com.parthipan.cheapeats.data.settings.ThemeMode
+import com.parthipan.cheapeats.data.settings.UserSettings
+import com.parthipan.cheapeats.ui.settings.SettingsBottomSheet
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -117,6 +123,7 @@ fun HomeScreen(
     modifier: Modifier = Modifier,
     vertexAiService: VertexAiService? = null,
     placesService: PlacesService? = null,
+    database: AppDatabase? = null,
     filterViewModel: FilterViewModel = viewModel()
 ) {
     val context = LocalContext.current
@@ -154,6 +161,12 @@ fun HomeScreen(
     // Menu and tip dialog state
     var showMenu by remember { mutableStateOf(false) }
     var showTipDialog by remember { mutableStateOf(false) }
+    var showSettings by remember { mutableStateOf(false) }
+
+    // Settings state
+    val userSettings by database?.settingsDao()?.getSettings()?.collectAsState(initial = UserSettings())
+        ?: remember { mutableStateOf(UserSettings()) }
+    val cacheStats = remember { CacheStats() } // Simplified for now
 
     // Lunch Route state
     var showLunchRoute by remember { mutableStateOf(false) }
@@ -384,6 +397,19 @@ fun HomeScreen(
                             expanded = showMenu,
                             onDismissRequest = { showMenu = false }
                         ) {
+                            DropdownMenuItem(
+                                text = { Text("Settings") },
+                                onClick = {
+                                    showMenu = false
+                                    showSettings = true
+                                },
+                                leadingIcon = {
+                                    Icon(
+                                        imageVector = Icons.Default.Settings,
+                                        contentDescription = null
+                                    )
+                                }
+                            )
                             DropdownMenuItem(
                                 text = { Text("Thank the Developer") },
                                 onClick = {
@@ -661,6 +687,32 @@ fun HomeScreen(
                 showLunchRoute = false
                 lunchRouteViewModel.clearPlan()
             }
+        )
+    }
+
+    // Settings Bottom Sheet
+    if (showSettings && database != null) {
+        SettingsBottomSheet(
+            settings = userSettings ?: UserSettings(),
+            cacheStats = cacheStats,
+            onThemeModeChange = { mode ->
+                scope.launch {
+                    database.settingsDao().setThemeMode(mode)
+                }
+            },
+            onSettingsChange = { newSettings ->
+                scope.launch {
+                    database.settingsDao().saveSettings(newSettings)
+                }
+            },
+            onClearCache = {
+                scope.launch {
+                    // Clear cached restaurants
+                    database.cacheDao().clearAllCache()
+                    snackbarHostState.showSnackbar("Cache cleared")
+                }
+            },
+            onDismiss = { showSettings = false }
         )
     }
 }

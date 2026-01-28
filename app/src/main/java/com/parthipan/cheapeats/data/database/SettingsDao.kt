@@ -4,6 +4,7 @@ import androidx.room.Dao
 import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
+import com.parthipan.cheapeats.data.settings.ThemeMode
 import com.parthipan.cheapeats.data.settings.UserSettings
 import kotlinx.coroutines.flow.Flow
 
@@ -30,4 +31,7 @@ interface SettingsDao {
 
     @Query("UPDATE user_settings SET maxCacheSizeMb = :sizeMb WHERE id = 0")
     suspend fun setMaxCacheSize(sizeMb: Int)
+
+    @Query("UPDATE user_settings SET themeMode = :mode WHERE id = 0")
+    suspend fun setThemeMode(mode: ThemeMode)
 }

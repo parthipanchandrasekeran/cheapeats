@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
+import androidx.room.TypeConverters
 import androidx.sqlite.db.SupportSQLiteDatabase
 import com.parthipan.cheapeats.data.cache.CachedRestaurant
 import com.parthipan.cheapeats.data.deals.Deal
@@ -25,9 +26,10 @@ import kotlinx.coroutines.launch
         Deal::class,
         UserSettings::class
     ],
-    version = 1,
+    version = 2,
     exportSchema = false
 )
+@TypeConverters(SettingsConverters::class)
 abstract class AppDatabase : RoomDatabase() {
 
     abstract fun cacheDao(): CacheDao
@@ -50,6 +52,7 @@ abstract class AppDatabase : RoomDatabase() {
                     DATABASE_NAME
                 )
                     .addCallback(DatabaseCallback())
+                    .fallbackToDestructiveMigration()
                     .build()
                 INSTANCE = instance
                 instance
