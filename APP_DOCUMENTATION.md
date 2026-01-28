@@ -591,7 +591,7 @@ coil = "2.5.0"
 | 1.0.0 | Initial release with core features |
 | 1.1.0 | Added favorites, restaurant photos, price confidence indicators, time-aware ranking |
 | 1.2.0 | Added AI Trust & Transparency, Deals system, Collections, Offline mode, Map enhancements, Performance optimizations |
-| 1.3.0 | Added Lunch Route feature, custom app icon |
+| 1.3.0 | Added Lunch Route feature, custom app icon, dark mode setting |
 
 ---
 
@@ -606,27 +606,27 @@ coil = "2.5.0"
 | Screenshots (phone) | Done | 8 screenshots in `playstore/screenshots/` |
 | Screenshots (tablet) | Pending | Optional but recommended |
 | **Legal & Policy** | | |
-| Privacy Policy | Done | `PRIVACY_POLICY.md` and `docs/privacy-policy.html` |
-| Privacy Policy URL | Done | https://parthipanchandrasekeran.github.io/cheapeats/privacy-policy.html |
+| Privacy Policy | Done | `PRIVACY_POLICY.md` and `docs/privacy.html` |
+| Privacy Policy URL | Done | https://parthipanchandrasekeran.github.io/cheapeats/privacy.html |
 | Contact Email | Done | parthipan_chandrasekaran@yahoo.com |
 | **Store Listing** | | |
 | App Title | Done | "CheapEats - Budget Dining TO" (28 chars) |
 | Short Description | Done | 80-char description in `playstore/listing.txt` |
 | Full Description | Done | Full description in `playstore/listing.txt` |
 | App Category | Done | Food & Drink |
-| Content Rating | Pending | Complete questionnaire in Play Console |
+| Content Rating | Done | Completed in Play Console |
 | **Technical** | | |
-| Release Keystore | Pending | Create production signing key |
+| Release Keystore | Done | Created release-keystore.jks |
 | ProGuard/R8 | Done | Enabled in release builds |
 | Version Code | Done | Currently 1 |
-| Version Name | Pending | Update to 1.3.0 |
+| Version Name | Done | 1.3.0 |
 | Target API Level | Done | API 36 (Android 15) |
 | **Testing** | | |
 | Unit Tests | Done | 470+ tests passing |
 | Integration Tests | Done | UI tests passing |
 | Manual QA | Pending | Test on multiple devices |
 | **Play Console** | | |
-| Developer Account | Pending | $25 one-time registration fee |
+| Developer Account | Done | $25 one-time registration fee |
 | App Bundle (AAB) | Pending | Generate signed AAB for upload |
 | Internal Testing Track | Pending | Test before production release |
 
