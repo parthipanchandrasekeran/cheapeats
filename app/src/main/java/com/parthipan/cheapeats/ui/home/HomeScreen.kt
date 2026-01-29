@@ -260,18 +260,14 @@ fun HomeScreen(
             locationError = null
 
             try {
-                // TODO: TESTING - Using Toronto location. Remove for production!
-                // Toronto Union Station
-                val testLatitude = 43.6453
-                val testLongitude = -79.3806
-                val useTestLocation = true // Set to true for test location
-
-                // Get location in background
+                // Get real GPS location
                 val location = withContext(Dispatchers.IO) {
-                    if (useTestLocation) null else getCurrentLocation(context)
+                    getCurrentLocation(context)
                 }
-                val finalLatitude = location?.latitude ?: testLatitude
-                val finalLongitude = location?.longitude ?: testLongitude
+
+                // Fallback to Toronto Union Station if location unavailable
+                val finalLatitude = location?.latitude ?: 43.6453
+                val finalLongitude = location?.longitude ?: -79.3806
 
                 userLocation = LatLng(finalLatitude, finalLongitude)
 
