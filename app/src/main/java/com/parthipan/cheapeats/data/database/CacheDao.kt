@@ -17,11 +17,13 @@ interface CacheDao {
     """)
     fun getRecentlyViewed(limit: Int = 50): Flow<List<CachedRestaurant>>
 
+    // Longitude correction: 0.722 ≈ cos(43.7°) for Toronto latitude.
+    // Without this, the search area is an east-west stretched ellipse.
     @Query("""
         SELECT * FROM cached_restaurants
         WHERE (
             (:lat - latitude) * (:lat - latitude) +
-            (:lng - longitude) * (:lng - longitude)
+            ((:lng - longitude) * 0.722) * ((:lng - longitude) * 0.722)
         ) < :radiusSquared
         ORDER BY rating DESC
         LIMIT :limit

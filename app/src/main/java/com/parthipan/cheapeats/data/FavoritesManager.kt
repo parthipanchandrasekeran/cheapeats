@@ -17,6 +17,7 @@ class FavoritesManager(context: Context) {
     }
 
     private val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+    private val lock = Any()
 
     private val _favoriteIds = MutableStateFlow<Set<String>>(loadFavorites())
     val favoriteIds: StateFlow<Set<String>> = _favoriteIds.asStateFlow()
@@ -35,25 +36,31 @@ class FavoritesManager(context: Context) {
     }
 
     fun toggleFavorite(restaurantId: String) {
-        val current = _favoriteIds.value.toMutableSet()
-        if (restaurantId in current) {
-            current.remove(restaurantId)
-        } else {
-            current.add(restaurantId)
+        synchronized(lock) {
+            val current = _favoriteIds.value.toMutableSet()
+            if (restaurantId in current) {
+                current.remove(restaurantId)
+            } else {
+                current.add(restaurantId)
+            }
+            saveFavorites(current)
         }
-        saveFavorites(current)
     }
 
     fun addFavorite(restaurantId: String) {
-        val current = _favoriteIds.value.toMutableSet()
-        current.add(restaurantId)
-        saveFavorites(current)
+        synchronized(lock) {
+            val current = _favoriteIds.value.toMutableSet()
+            current.add(restaurantId)
+            saveFavorites(current)
+        }
     }
 
     fun removeFavorite(restaurantId: String) {
-        val current = _favoriteIds.value.toMutableSet()
-        current.remove(restaurantId)
-        saveFavorites(current)
+        synchronized(lock) {
+            val current = _favoriteIds.value.toMutableSet()
+            current.remove(restaurantId)
+            saveFavorites(current)
+        }
     }
 
     fun getFavoriteCount(): Int = _favoriteIds.value.size

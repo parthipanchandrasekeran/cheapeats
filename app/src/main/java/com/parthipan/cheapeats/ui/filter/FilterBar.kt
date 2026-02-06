@@ -1,5 +1,10 @@
 package com.parthipan.cheapeats.ui.filter
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.expandHorizontally
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkHorizontally
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
@@ -33,6 +38,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -150,8 +157,12 @@ fun FilterBarContent(
             Spacer(modifier = Modifier.width(8.dp))
         }
 
-        // Clear all button - only visible when filters are active
-        if (filterState.hasActiveFilters) {
+        // Clear all button with animated visibility
+        AnimatedVisibility(
+            visible = filterState.hasActiveFilters,
+            enter = fadeIn() + expandHorizontally(),
+            exit = fadeOut() + shrinkHorizontally()
+        ) {
             IconButton(
                 onClick = onClearAll,
                 modifier = Modifier.size(40.dp)
@@ -176,12 +187,16 @@ private fun Under15FilterChip(
     onToggle: () -> Unit,
     onModeChange: (PriceFilterMode) -> Unit
 ) {
+    val hapticFeedback = LocalHapticFeedback.current
     var showModeMenu by remember { mutableStateOf(false) }
 
     Box {
         FilterChip(
             selected = isActive,
-            onClick = onToggle,
+            onClick = {
+                hapticFeedback.performHapticFeedback(HapticFeedbackType.LongPress)
+                onToggle()
+            },
             label = {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
@@ -190,16 +205,24 @@ private fun Under15FilterChip(
                     )
                     if (isActive) {
                         Spacer(Modifier.width(4.dp))
-                        Text(
-                            text = if (priceMode == PriceFilterMode.STRICT) "Strict" else "Flex",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.primary
-                        )
-                        Icon(
-                            imageVector = Icons.Default.ArrowDropDown,
-                            contentDescription = "Change mode",
-                            modifier = Modifier.size(16.dp)
-                        )
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.clickable(
+                                interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() },
+                                indication = null
+                            ) { showModeMenu = true }
+                        ) {
+                            Text(
+                                text = if (priceMode == PriceFilterMode.STRICT) "Strict" else "Flex",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                            Icon(
+                                imageVector = Icons.Default.ArrowDropDown,
+                                contentDescription = "Change mode",
+                                modifier = Modifier.size(16.dp)
+                            )
+                        }
                     }
                 }
             },
@@ -218,17 +241,6 @@ private fun Under15FilterChip(
                 selectedLeadingIconColor = MaterialTheme.colorScheme.onPrimaryContainer
             )
         )
-
-        // Only show menu when chip is active and user taps the mode indicator
-        if (isActive) {
-            // Invisible click target for dropdown on right side of chip
-            Box(
-                modifier = Modifier
-                    .matchParentSize()
-                    .padding(start = 80.dp)
-                    .clickable { showModeMenu = true }
-            )
-        }
 
         // Mode dropdown menu
         DropdownMenu(
@@ -291,9 +303,14 @@ private fun FilterChipItem(
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val hapticFeedback = LocalHapticFeedback.current
+
     FilterChip(
         selected = isSelected,
-        onClick = onClick,
+        onClick = {
+            hapticFeedback.performHapticFeedback(HapticFeedbackType.LongPress)
+            onClick()
+        },
         label = {
             Text(
                 text = label,

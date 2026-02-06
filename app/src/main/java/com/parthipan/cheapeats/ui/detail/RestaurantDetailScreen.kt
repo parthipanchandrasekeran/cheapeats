@@ -6,7 +6,8 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -14,194 +15,314 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Menu
+import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Star
-import androidx.compose.material3.AssistChip
-import androidx.compose.material3.AssistChipDefaults
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Surface
+import androidx.compose.material3.SuggestionChip
+import androidx.compose.material3.SuggestionChipDefaults
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.derivedStateOf
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import coil.compose.SubcomposeAsyncImage
+import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import com.parthipan.cheapeats.data.DataFreshness
-import com.parthipan.cheapeats.data.Dish
 import com.parthipan.cheapeats.data.Restaurant
-import com.parthipan.cheapeats.data.SampleDishes
 
-@OptIn(ExperimentalMaterial3Api::class)
+private val HeroExpandedHeight = 220.dp
+private val HeroCollapsedHeight = 56.dp
+
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun RestaurantDetailScreen(
     restaurant: Restaurant,
-    showUnder15Only: Boolean,
     onBackClick: () -> Unit
 ) {
-    val dishes = remember(restaurant, showUnder15Only) {
-        if (showUnder15Only) {
-            SampleDishes.getDishesUnder15(restaurant.name, restaurant.cuisine)
-        } else {
-            SampleDishes.getDishesForRestaurant(restaurant.name, restaurant.cuisine)
+    val scrollState = rememberScrollState()
+    val density = LocalDensity.current
+
+    val heroExpandedPx = with(density) { HeroExpandedHeight.toPx() }
+    val heroCollapsedPx = with(density) { HeroCollapsedHeight.toPx() }
+    val heroRangePx = heroExpandedPx - heroCollapsedPx
+
+    // How far collapsed we are: 0 = fully expanded, 1 = fully collapsed
+    val collapsedFraction by remember {
+        derivedStateOf {
+            (scrollState.value / heroRangePx).coerceIn(0f, 1f)
         }
     }
 
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = {
-                    Column {
-                        Text(
-                            text = restaurant.name,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                        Text(
-                            text = if (showUnder15Only) "Dishes under \$15 CAD" else "All dishes",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                },
-                navigationIcon = {
-                    IconButton(onClick = onBackClick) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = "Back"
-                        )
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.primaryContainer
-                )
-            )
+    // Hero height shrinks as user scrolls
+    val heroHeight by remember {
+        derivedStateOf {
+            with(density) {
+                val heightPx = heroExpandedPx - scrollState.value.coerceAtMost(heroRangePx.toInt())
+                heightPx.toDp()
+            }
         }
-    ) { paddingValues ->
+    }
+
+    Box(modifier = Modifier.fillMaxSize()) {
+        // Scrollable content
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(paddingValues)
+                .verticalScroll(scrollState)
         ) {
-            // Restaurant info header
-            RestaurantInfoHeader(restaurant = restaurant)
-
-            // Dishes list
-            if (dishes.isEmpty()) {
-                EmptyDishesState(showUnder15Only = showUnder15Only)
-            } else {
-                LazyColumn(
-                    modifier = Modifier.fillMaxSize(),
-                    contentPadding = PaddingValues(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    item {
-                        Text(
-                            text = "${dishes.size} ${if (showUnder15Only) "affordable" else ""} dishes available",
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold,
-                            modifier = Modifier.padding(bottom = 8.dp)
-                        )
-                    }
-
-                    items(dishes, key = { it.id }) { dish ->
-                        DishCard(dish = dish)
-                    }
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun RestaurantInfoHeader(restaurant: Restaurant) {
-    val context = LocalContext.current
-
-    Surface(
-        modifier = Modifier.fillMaxWidth(),
-        color = MaterialTheme.colorScheme.surfaceVariant,
-        tonalElevation = 2.dp
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp)
-        ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
+            // Hero image section (shrinks with scroll)
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(HeroExpandedHeight)
             ) {
-                Column(modifier = Modifier.weight(1f)) {
+                // Letter placeholder fallback
+                val placeholderColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(placeholderColor),
+                    contentAlignment = Alignment.Center
+                ) {
                     Text(
-                        text = restaurant.cuisine,
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.primary
-                    )
-                    Text(
-                        text = restaurant.address,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
+                        text = restaurant.name.take(1),
+                        style = MaterialTheme.typography.displayLarge,
+                        color = MaterialTheme.colorScheme.primary,
+                        fontWeight = FontWeight.Bold
                     )
                 }
 
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(16.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    // Rating
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(
-                            imageVector = Icons.Default.Star,
-                            contentDescription = null,
-                            tint = Color(0xFFFFB300),
-                            modifier = Modifier.size(18.dp)
+                // Actual hero image with parallax
+                if (restaurant.imageUrl != null) {
+                    AsyncImage(
+                        model = ImageRequest.Builder(LocalContext.current)
+                            .data(restaurant.imageUrl)
+                            .crossfade(300)
+                            .size(600)
+                            .memoryCacheKey("detail_${restaurant.id}")
+                            .diskCacheKey("detail_${restaurant.id}")
+                            .build(),
+                        contentDescription = restaurant.name,
+                        contentScale = ContentScale.Crop,
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .graphicsLayer {
+                                translationY = scrollState.value * 0.5f
+                            }
+                    )
+                }
+
+                // Gradient overlay
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(100.dp)
+                        .align(Alignment.BottomCenter)
+                        .background(
+                            Brush.verticalGradient(
+                                colors = listOf(
+                                    Color.Transparent,
+                                    Color.Black.copy(alpha = 0.75f)
+                                )
+                            )
                         )
-                        Spacer(modifier = Modifier.width(4.dp))
+                )
+
+                // Name + rating overlaid on gradient (fades out as collapsed)
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .align(Alignment.BottomStart)
+                        .padding(16.dp)
+                        .alpha(1f - collapsedFraction),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.Bottom
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
                         Text(
-                            text = String.format("%.1f", restaurant.rating),
+                            text = restaurant.name,
+                            style = MaterialTheme.typography.headlineSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = Color.White,
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                        Text(
+                            text = restaurant.cuisine,
                             style = MaterialTheme.typography.bodyMedium,
-                            fontWeight = FontWeight.Bold
+                            color = Color.White.copy(alpha = 0.85f)
                         )
                     }
+                    if (restaurant.rating > 0) {
+                        Row(
+                            modifier = Modifier
+                                .background(
+                                    Color.Black.copy(alpha = 0.5f),
+                                    shape = MaterialTheme.shapes.small
+                                )
+                                .padding(horizontal = 10.dp, vertical = 6.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Star,
+                                contentDescription = null,
+                                tint = Color(0xFFFFB300),
+                                modifier = Modifier.size(18.dp)
+                            )
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text(
+                                text = String.format("%.1f", restaurant.rating),
+                                style = MaterialTheme.typography.titleSmall,
+                                fontWeight = FontWeight.Bold,
+                                color = Color.White
+                            )
+                        }
+                    }
+                }
+            }
 
-                    // Price
-                    Text(
-                        text = restaurant.pricePoint,
-                        style = MaterialTheme.typography.bodyMedium,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.primary
+            // Info chips row
+            FlowRow(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 12.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                // Open status chip
+                if (restaurant.isOpenNow == true) {
+                    SuggestionChip(
+                        onClick = { },
+                        label = {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(6.dp)
+                                        .background(Color(0xFF4CAF50), shape = CircleShape)
+                                )
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text("Open Now", style = MaterialTheme.typography.labelSmall)
+                            }
+                        },
+                        colors = SuggestionChipDefaults.suggestionChipColors(
+                            containerColor = Color(0xFF4CAF50).copy(alpha = 0.1f),
+                            labelColor = Color(0xFF2E7D32)
+                        ),
+                        border = null
+                    )
+                }
+
+                // Price chip
+                if (restaurant.averagePrice != null || restaurant.priceLevel > 0) {
+                    SuggestionChip(
+                        onClick = { },
+                        label = {
+                            Text(
+                                text = if (restaurant.averagePrice != null) {
+                                    "~\$${String.format("%.0f", restaurant.averagePrice)} CAD"
+                                } else {
+                                    restaurant.pricePoint
+                                },
+                                style = MaterialTheme.typography.labelSmall
+                            )
+                        },
+                        colors = SuggestionChipDefaults.suggestionChipColors(
+                            containerColor = MaterialTheme.colorScheme.primaryContainer,
+                            labelColor = MaterialTheme.colorScheme.onPrimaryContainer
+                        ),
+                        border = null
+                    )
+                }
+
+                // Distance chip
+                SuggestionChip(
+                    onClick = { },
+                    label = {
+                        Text(
+                            text = String.format("%.1f km", restaurant.distance),
+                            style = MaterialTheme.typography.labelSmall
+                        )
+                    },
+                    colors = SuggestionChipDefaults.suggestionChipColors(
+                        containerColor = MaterialTheme.colorScheme.surfaceVariant,
+                        labelColor = MaterialTheme.colorScheme.onSurfaceVariant
+                    ),
+                    border = null
+                )
+
+                // TTC chip
+                if (restaurant.nearTTC) {
+                    SuggestionChip(
+                        onClick = { },
+                        label = {
+                            Text(
+                                text = restaurant.nearestStation ?: "Near TTC",
+                                style = MaterialTheme.typography.labelSmall
+                            )
+                        },
+                        colors = SuggestionChipDefaults.suggestionChipColors(
+                            containerColor = Color(0xFFDA291C).copy(alpha = 0.1f),
+                            labelColor = Color(0xFFDA291C)
+                        ),
+                        border = null
+                    )
+                }
+
+                // Student discount chip
+                if (restaurant.hasStudentDiscount) {
+                    SuggestionChip(
+                        onClick = { },
+                        label = {
+                            Text("Student Discount", style = MaterialTheme.typography.labelSmall)
+                        },
+                        colors = SuggestionChipDefaults.suggestionChipColors(
+                            containerColor = Color(0xFF9C27B0).copy(alpha = 0.1f),
+                            labelColor = Color(0xFF7B1FA2)
+                        ),
+                        border = null
                     )
                 }
             }
 
-            // Price confidence indicator (subtle)
+            // Address
+            Text(
+                text = restaurant.address,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(horizontal = 16.dp)
+            )
+
+            // Price confidence indicator
             if (restaurant.averagePrice != null) {
                 val (confidenceText, supportingText) = when (restaurant.dataFreshness) {
                     DataFreshness.LIVE -> "Price verified" to "Checked just now"
@@ -209,253 +330,241 @@ private fun RestaurantInfoHeader(restaurant: Restaurant) {
                     DataFreshness.CACHED -> "Price may vary" to "Last checked a while ago"
                     DataFreshness.UNKNOWN -> "Price unverified" to "Confirm before ordering"
                 }
-                Spacer(modifier = Modifier.height(6.dp))
                 Text(
                     text = "$confidenceText · $supportingText",
                     style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
                 )
             }
 
-            Spacer(modifier = Modifier.height(12.dp))
+            Spacer(modifier = Modifier.height(8.dp))
 
-            // Action buttons row
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                // View Full Menu button
-                if (restaurant.websiteUrl != null) {
-                    Button(
-                        onClick = {
-                            val intent = Intent(Intent.ACTION_VIEW, Uri.parse(restaurant.websiteUrl))
-                            context.startActivity(intent)
-                        },
-                        modifier = Modifier.weight(1f),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = MaterialTheme.colorScheme.primary
-                        )
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Menu,
-                            contentDescription = null,
-                            modifier = Modifier.size(18.dp)
-                        )
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text("View Full Menu")
-                    }
-                } else {
-                    // Search for menu online
-                    Button(
-                        onClick = {
-                            val searchQuery = "${restaurant.name} menu Toronto"
-                            val intent = Intent(Intent.ACTION_VIEW,
-                                Uri.parse("https://www.google.com/search?q=${Uri.encode(searchQuery)}"))
-                            context.startActivity(intent)
-                        },
-                        modifier = Modifier.weight(1f),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = MaterialTheme.colorScheme.primary
-                        )
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Menu,
-                            contentDescription = null,
-                            modifier = Modifier.size(18.dp)
-                        )
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text("Find Menu")
-                    }
-                }
+            // Price information section
+            RestaurantPriceSection(restaurant = restaurant)
 
-                // Directions button
-                OutlinedButton(
-                    onClick = {
-                        val uri = restaurant.googleMapsUrl
-                            ?: "https://www.google.com/maps/search/?api=1&query=${Uri.encode(restaurant.address)}"
-                        val intent = Intent(Intent.ACTION_VIEW, Uri.parse(uri))
-                        context.startActivity(intent)
-                    },
-                    modifier = Modifier.weight(1f)
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.LocationOn,
-                        contentDescription = null,
-                        modifier = Modifier.size(18.dp)
-                    )
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text("Directions")
-                }
-            }
+            Spacer(modifier = Modifier.height(8.dp))
+
+            // Action buttons section
+            RestaurantActionButtons(restaurant = restaurant)
+
+            Spacer(modifier = Modifier.height(24.dp))
         }
-    }
-}
 
-@Composable
-private fun DishCard(dish: Dish) {
-    val context = LocalContext.current
-
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surface
-        ),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
-    ) {
-        Row(
+        // Pinned top bar (fades in when hero is collapsed)
+        Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(16.dp),
-            verticalAlignment = Alignment.Top
+                .height(HeroCollapsedHeight)
+                .alpha(collapsedFraction)
+                .background(MaterialTheme.colorScheme.surface)
+                .statusBarsPadding()
         ) {
-            // Dish image with letter fallback
-            Box(
+            Row(
                 modifier = Modifier
-                    .size(56.dp)
-                    .clip(RoundedCornerShape(8.dp))
-                    .background(MaterialTheme.colorScheme.primaryContainer),
-                contentAlignment = Alignment.Center
+                    .fillMaxSize()
+                    .padding(horizontal = 4.dp),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                if (dish.imageUrl != null) {
-                    SubcomposeAsyncImage(
-                        model = ImageRequest.Builder(context)
-                            .data(dish.imageUrl)
-                            .crossfade(200)
-                            .build(),
-                        contentDescription = dish.name,
-                        contentScale = androidx.compose.ui.layout.ContentScale.Crop,
-                        modifier = Modifier.fillMaxSize(),
-                        loading = {
-                            // Show letter while loading
-                            DishLetterPlaceholder(dish.name)
-                        },
-                        error = {
-                            // Fallback to letter on error
-                            DishLetterPlaceholder(dish.name)
-                        }
-                    )
-                } else {
-                    // No image URL, show letter placeholder
-                    DishLetterPlaceholder(dish.name)
-                }
-            }
-
-            Spacer(modifier = Modifier.width(12.dp))
-
-            Column(modifier = Modifier.weight(1f)) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.Top
-                ) {
-                    Text(
-                        text = dish.name,
-                        style = MaterialTheme.typography.titleSmall,
-                        fontWeight = FontWeight.Bold,
-                        modifier = Modifier.weight(1f)
-                    )
-
-                    // Price badge
-                    Surface(
-                        color = if (dish.isUnder15) {
-                            MaterialTheme.colorScheme.primaryContainer
-                        } else {
-                            MaterialTheme.colorScheme.surfaceVariant
-                        },
-                        shape = RoundedCornerShape(4.dp)
-                    ) {
-                        Text(
-                            text = dish.formattedPrice,
-                            style = MaterialTheme.typography.labelLarge,
-                            fontWeight = FontWeight.Bold,
-                            color = if (dish.isUnder15) {
-                                MaterialTheme.colorScheme.onPrimaryContainer
-                            } else {
-                                MaterialTheme.colorScheme.onSurfaceVariant
-                            },
-                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
-                        )
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(4.dp))
-
+                // Space for the floating back button
+                Spacer(modifier = Modifier.width(48.dp))
                 Text(
-                    text = dish.description,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis
+                    text = restaurant.name,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f)
+                )
+            }
+        }
+
+        // Back button — always visible, floating over hero
+        IconButton(
+            onClick = onBackClick,
+            modifier = Modifier
+                .statusBarsPadding()
+                .padding(4.dp)
+                .align(Alignment.TopStart)
+                .background(
+                    color = Color.Black.copy(alpha = 0.4f * (1f - collapsedFraction)),
+                    shape = CircleShape
+                )
+        ) {
+            Icon(
+                imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                contentDescription = "Back",
+                tint = if (collapsedFraction > 0.5f)
+                    MaterialTheme.colorScheme.onSurface
+                else
+                    Color.White
+            )
+        }
+    }
+}
+
+@Composable
+private fun RestaurantPriceSection(restaurant: Restaurant) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp)
+    ) {
+        // Price summary card
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            colors = CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.primaryContainer
+            ),
+            shape = MaterialTheme.shapes.medium
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Text(
+                    text = "Average Price",
+                    style = MaterialTheme.typography.labelLarge,
+                    color = MaterialTheme.colorScheme.onPrimaryContainer
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = if (restaurant.averagePrice != null) {
+                        "~\$${String.format("%.0f", restaurant.averagePrice)} CAD"
+                    } else {
+                        restaurant.pricePoint
+                    },
+                    style = MaterialTheme.typography.headlineLarge,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onPrimaryContainer
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = when {
+                        restaurant.averagePrice != null && restaurant.averagePrice < 15 -> "Budget-friendly meal"
+                        restaurant.averagePrice != null && restaurant.averagePrice < 25 -> "Moderate pricing"
+                        restaurant.averagePrice != null -> "Higher-end dining"
+                        else -> "Price level: ${restaurant.pricePoint}"
+                    },
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f)
+                )
+            }
+        }
+
+        // Price details
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            colors = CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.surface
+            ),
+            shape = MaterialTheme.shapes.medium
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                Text(
+                    text = "Price Details",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold
                 )
 
-                Spacer(modifier = Modifier.height(8.dp))
-
-                // Tags row
+                // Price level
                 Row(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween
                 ) {
-                    // Category chip
-                    AssistChip(
-                        onClick = { },
-                        label = {
-                            Text(
-                                text = dish.category,
-                                style = MaterialTheme.typography.labelSmall
-                            )
-                        },
-                        modifier = Modifier.height(24.dp)
+                    Text(
+                        text = "Price Level",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
+                    Text(
+                        text = restaurant.pricePoint,
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.Medium
+                    )
+                }
 
-                    // Vegetarian badge
-                    if (dish.isVegetarian) {
-                        AssistChip(
-                            onClick = { },
-                            label = {
-                                Text(
-                                    text = "Veg",
-                                    style = MaterialTheme.typography.labelSmall
-                                )
-                            },
-                            colors = AssistChipDefaults.assistChipColors(
-                                containerColor = Color(0xFF4CAF50).copy(alpha = 0.2f)
-                            ),
-                            modifier = Modifier.height(24.dp)
+                // Distance
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text(
+                        text = "Distance",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Text(
+                        text = String.format("%.1f km away", restaurant.distance),
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.Medium
+                    )
+                }
+
+                // TTC proximity
+                if (restaurant.nearTTC) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Text(
+                            text = "TTC Access",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Text(
+                            text = restaurant.nearestStation ?: "Near subway",
+                            style = MaterialTheme.typography.bodyMedium,
+                            fontWeight = FontWeight.Medium,
+                            color = MaterialTheme.colorScheme.primary
                         )
                     }
+                }
 
-                    // Spicy badge
-                    if (dish.isSpicy) {
-                        AssistChip(
-                            onClick = { },
-                            label = {
-                                Text(
-                                    text = "Spicy",
-                                    style = MaterialTheme.typography.labelSmall
-                                )
-                            },
-                            colors = AssistChipDefaults.assistChipColors(
-                                containerColor = Color(0xFFFF5722).copy(alpha = 0.2f)
-                            ),
-                            modifier = Modifier.height(24.dp)
+                // Student discount
+                if (restaurant.hasStudentDiscount) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Text(
+                            text = "Student Discount",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Text(
+                            text = "Available",
+                            style = MaterialTheme.typography.bodyMedium,
+                            fontWeight = FontWeight.Medium,
+                            color = Color(0xFF4CAF50)
                         )
                     }
+                }
 
-                    // Under $15 badge
-                    if (dish.isUnder15) {
-                        AssistChip(
-                            onClick = { },
-                            label = {
-                                Text(
-                                    text = "< \$15",
-                                    style = MaterialTheme.typography.labelSmall
-                                )
-                            },
-                            colors = AssistChipDefaults.assistChipColors(
-                                containerColor = MaterialTheme.colorScheme.primaryContainer
-                            ),
-                            modifier = Modifier.height(24.dp)
-                        )
-                    }
+                // Open status
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text(
+                        text = "Status",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Text(
+                        text = if (restaurant.isOpenNow == true) "Open Now" else "Closed",
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.Medium,
+                        color = if (restaurant.isOpenNow == true) Color(0xFF4CAF50) else Color(0xFFE53935)
+                    )
                 }
             }
         }
@@ -463,52 +572,107 @@ private fun DishCard(dish: Dish) {
 }
 
 @Composable
-private fun EmptyDishesState(showUnder15Only: Boolean) {
-    Box(
+private fun RestaurantActionButtons(restaurant: Restaurant) {
+    val context = LocalContext.current
+    val hapticFeedback = LocalHapticFeedback.current
+
+    Row(
         modifier = Modifier
-            .fillMaxSize()
-            .padding(32.dp),
-        contentAlignment = Alignment.Center
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
     ) {
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(16.dp)
+        // View Full Menu button
+        if (restaurant.websiteUrl != null) {
+            Button(
+                onClick = {
+                    hapticFeedback.performHapticFeedback(HapticFeedbackType.LongPress)
+                    val intent = Intent(Intent.ACTION_VIEW, Uri.parse(restaurant.websiteUrl))
+                    context.startActivity(intent)
+                },
+                modifier = Modifier.weight(1f),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.primary
+                ),
+                shape = MaterialTheme.shapes.medium
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Menu,
+                    contentDescription = null,
+                    modifier = Modifier.size(18.dp)
+                )
+                Spacer(modifier = Modifier.width(4.dp))
+                Text("View Full Menu")
+            }
+        } else {
+            // Search for menu online
+            Button(
+                onClick = {
+                    hapticFeedback.performHapticFeedback(HapticFeedbackType.LongPress)
+                    val searchQuery = "${restaurant.name} menu Toronto"
+                    val intent = Intent(Intent.ACTION_VIEW,
+                        Uri.parse("https://www.google.com/search?q=${Uri.encode(searchQuery)}"))
+                    context.startActivity(intent)
+                },
+                modifier = Modifier.weight(1f),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.primary
+                ),
+                shape = MaterialTheme.shapes.medium
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Menu,
+                    contentDescription = null,
+                    modifier = Modifier.size(18.dp)
+                )
+                Spacer(modifier = Modifier.width(4.dp))
+                Text("Find Menu")
+            }
+        }
+
+        // Directions button
+        OutlinedButton(
+            onClick = {
+                hapticFeedback.performHapticFeedback(HapticFeedbackType.LongPress)
+                val uri = restaurant.googleMapsUrl
+                    ?: "https://www.google.com/maps/search/?api=1&query=${Uri.encode(restaurant.address)}"
+                val intent = Intent(Intent.ACTION_VIEW, Uri.parse(uri))
+                context.startActivity(intent)
+            },
+            modifier = Modifier.weight(1f),
+            shape = MaterialTheme.shapes.medium
         ) {
-            Text(
-                text = "🍽️",
-                style = MaterialTheme.typography.displayLarge
+            Icon(
+                imageVector = Icons.Default.LocationOn,
+                contentDescription = null,
+                modifier = Modifier.size(18.dp)
             )
-            Text(
-                text = if (showUnder15Only) {
-                    "No dishes under \$15 CAD"
+            Spacer(modifier = Modifier.width(4.dp))
+            Text("Directions")
+        }
+
+        // Share button
+        IconButton(
+            onClick = {
+                hapticFeedback.performHapticFeedback(HapticFeedbackType.LongPress)
+                val priceText = if (restaurant.averagePrice != null) {
+                    "~\$${String.format("%.0f", restaurant.averagePrice)} CAD"
                 } else {
-                    "No dishes available"
-                },
-                style = MaterialTheme.typography.titleMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-            Text(
-                text = if (showUnder15Only) {
-                    "Try removing the price filter to see all dishes"
-                } else {
-                    "Menu information is currently unavailable"
-                },
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+                    restaurant.pricePoint
+                }
+                val shareText = "Check out ${restaurant.name} — ${restaurant.cuisine} near ${restaurant.address}. $priceText. Found on CheapEats!"
+                val sendIntent = Intent(Intent.ACTION_SEND).apply {
+                    type = "text/plain"
+                    putExtra(Intent.EXTRA_TEXT, shareText)
+                }
+                context.startActivity(Intent.createChooser(sendIntent, "Share restaurant"))
+            }
+        ) {
+            Icon(
+                imageVector = Icons.Default.Share,
+                contentDescription = "Share",
+                tint = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
     }
-}
-
-/**
- * Letter placeholder for dishes without images or when image fails to load.
- */
-@Composable
-private fun DishLetterPlaceholder(dishName: String) {
-    Text(
-        text = dishName.take(1).uppercase(),
-        style = MaterialTheme.typography.headlineSmall,
-        fontWeight = FontWeight.Bold,
-        color = MaterialTheme.colorScheme.onPrimaryContainer
-    )
 }

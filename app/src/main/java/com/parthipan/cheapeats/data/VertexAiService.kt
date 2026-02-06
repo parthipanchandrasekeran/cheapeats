@@ -2,19 +2,19 @@ package com.parthipan.cheapeats.data
 
 import android.content.Context
 import android.util.Log
-import com.google.auth.oauth2.GoogleCredentials
-import com.google.gson.Gson
+import com.google.ai.client.generativeai.GenerativeModel
+import com.google.ai.client.generativeai.type.content
+import com.google.ai.client.generativeai.type.generationConfig
+import com.parthipan.cheapeats.BuildConfig
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import okhttp3.MediaType.Companion.toMediaType
-import okhttp3.OkHttpClient
-import okhttp3.Request
-import okhttp3.RequestBody.Companion.toRequestBody
-import java.util.concurrent.TimeUnit
 
+@Suppress("unused")
 class VertexAiService(private val context: Context) {
 
     companion object {
+        private const val TAG = "VertexAiService"
+
         /**
          * System prompt defining the AI assistant's behavior within CheapEats
          */
@@ -66,71 +66,22 @@ Favorites handling:
 """
     }
 
-    private val projectId = "project-90e82d65-ab87-4f3a-83c"
-    private val location = "us-central1"
-    private val modelId = "gemini-1.5-flash-001"
-
-    private val credentials: GoogleCredentials by lazy {
-        context.assets.open("project-90e82d65-ab87-4f3a-83c-20574965fed9.json").use { stream ->
-            GoogleCredentials.fromStream(stream)
-                .createScoped(listOf("https://www.googleapis.com/auth/cloud-platform"))
+    private val model = GenerativeModel(
+        modelName = "gemini-2.0-flash",
+        apiKey = BuildConfig.GEMINI_API_KEY,
+        systemInstruction = content { text(SYSTEM_PROMPT) },
+        generationConfig = generationConfig {
+            temperature = 0.7f
         }
-    }
-
-    private val httpClient = OkHttpClient.Builder()
-        .connectTimeout(30, TimeUnit.SECONDS)
-        .readTimeout(60, TimeUnit.SECONDS)
-        .build()
-
-    private val gson = Gson()
-
-    private val endpoint: String
-        get() = "https://$location-aiplatform.googleapis.com/v1/projects/$projectId/locations/$location/publishers/google/models/$modelId:generateContent"
-
-    private fun getAccessToken(): String {
-        credentials.refreshIfExpired()
-        return credentials.accessToken.tokenValue
-    }
+    )
 
     suspend fun generateContent(prompt: String): String = withContext(Dispatchers.IO) {
         try {
-            val requestBody = VertexRequest(
-                contents = listOf(
-                    Content(
-                        role = "user",
-                        parts = listOf(Part(text = prompt))
-                    )
-                ),
-                generationConfig = GenerationConfig(
-                    temperature = 0.7f,
-                    topK = 40,
-                    topP = 0.95f,
-                    maxOutputTokens = 1024
-                )
-            )
-
-            val jsonBody = gson.toJson(requestBody)
-            val token = getAccessToken()
-
-            val request = Request.Builder()
-                .url(endpoint)
-                .addHeader("Authorization", "Bearer $token")
-                .addHeader("Content-Type", "application/json")
-                .post(jsonBody.toRequestBody("application/json".toMediaType()))
-                .build()
-
-            val response = httpClient.newCall(request).execute()
-            val responseBody = response.body?.string() ?: ""
-
-            if (!response.isSuccessful) {
-                throw Exception("API call failed: ${response.code} - $responseBody")
-            }
-
-            val vertexResponse = gson.fromJson(responseBody, VertexResponse::class.java)
-            vertexResponse.candidates?.firstOrNull()?.content?.parts?.firstOrNull()?.text ?: ""
+            val response = model.generateContent(prompt)
+            response.text ?: ""
         } catch (e: Exception) {
-            e.printStackTrace()
-            throw e
+            Log.e(TAG, "generateContent failed", e)
+            ""
         }
     }
 
@@ -146,8 +97,6 @@ Favorites handling:
             }
 
             val prompt = """
-                $SYSTEM_PROMPT
-
                 TASK: Given the user's search query and a list of restaurants,
                 return the IDs of the most relevant restaurants in order of relevance.
 
@@ -179,7 +128,7 @@ Favorites handling:
 
             matchedIds.mapNotNull { id -> restaurantMap[id] }
         } catch (e: Exception) {
-            e.printStackTrace()
+            Log.e(TAG, "getSearchSuggestions failed", e)
             // Fallback to basic search on error
             restaurants.filter { restaurant ->
                 restaurant.name.contains(query, ignoreCase = true) ||
@@ -202,8 +151,6 @@ Favorites handling:
             }
 
             val prompt = """
-                $SYSTEM_PROMPT
-
                 User is looking for: "$preferences"
 
                 Available restaurants:
@@ -215,42 +162,8 @@ Favorites handling:
 
             generateContent(prompt).trim()
         } catch (e: Exception) {
-            e.printStackTrace()
+            Log.e(TAG, "getRestaurantRecommendation failed", e)
             "I'm having trouble connecting right now. Try searching by cuisine or price!"
         }
     }
 }
-
-// Request/Response data classes
-data class VertexRequest(
-    val contents: List<Content>,
-    val generationConfig: GenerationConfig
-)
-
-data class Content(
-    val role: String,
-    val parts: List<Part>
-)
-
-data class Part(
-    val text: String
-)
-
-data class GenerationConfig(
-    val temperature: Float,
-    val topK: Int,
-    val topP: Float,
-    val maxOutputTokens: Int
-)
-
-data class VertexResponse(
-    val candidates: List<Candidate>?
-)
-
-data class Candidate(
-    val content: ResponseContent?
-)
-
-data class ResponseContent(
-    val parts: List<Part>?
-)

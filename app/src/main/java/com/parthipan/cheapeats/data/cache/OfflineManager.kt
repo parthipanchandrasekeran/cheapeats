@@ -1,6 +1,7 @@
 package com.parthipan.cheapeats.data.cache
 
 import android.content.Context
+import android.util.Log
 import android.graphics.Bitmap
 import android.graphics.drawable.BitmapDrawable
 import android.net.ConnectivityManager
@@ -32,6 +33,7 @@ class OfflineManager(
     private val cacheDao: CacheDao
 ) {
     companion object {
+        private const val TAG = "OfflineManager"
         const val MAX_CACHE_AGE_DAYS = 7
         const val MAX_CACHE_SIZE_MB = 50
         const val MAX_CACHED_RESTAURANTS = 200
@@ -66,7 +68,7 @@ class OfflineManager(
         try {
             connectivityManager.registerDefaultNetworkCallback(networkCallback!!)
         } catch (e: Exception) {
-            // Handle permission issues gracefully
+            Log.w(TAG, "Failed to register network callback", e)
             networkCallback = null
         }
     }
@@ -79,7 +81,7 @@ class OfflineManager(
             try {
                 connectivityManager.unregisterNetworkCallback(callback)
             } catch (e: Exception) {
-                // Ignore - callback may already be unregistered
+                Log.w(TAG, "Failed to unregister network callback", e)
             }
             networkCallback = null
         }
@@ -177,7 +179,7 @@ class OfflineManager(
                     cacheDao.updateThumbnailPath(restaurantId, file.absolutePath)
                 }
             } catch (e: Exception) {
-                // Silently fail - thumbnail caching is best-effort
+                Log.w(TAG, "Failed to cache thumbnail for $restaurantId", e)
             }
         }
     }
@@ -201,7 +203,7 @@ class OfflineManager(
                     }
                 }
             } catch (e: Exception) {
-                // Ignore cleanup errors
+                Log.w(TAG, "Failed to clean up orphaned thumbnails", e)
             }
         }
 

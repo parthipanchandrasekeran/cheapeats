@@ -267,12 +267,6 @@ fun MapScreen(
                     }
 
                     clusterManager = manager
-
-                    // Add initial items
-                    restaurants.forEach { restaurant ->
-                        manager.addItem(RestaurantClusterItem(restaurant))
-                    }
-                    manager.cluster()
                 }
             }
         }

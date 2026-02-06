@@ -9,7 +9,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -36,7 +35,7 @@ fun ReasonChips(
         modifier = modifier,
         horizontalArrangement = Arrangement.spacedBy(6.dp)
     ) {
-        items(reasons) { reason ->
+        items(reasons, key = { it.name }) { reason ->
             ReasonChip(
                 reason = reason,
                 onClick = { onChipClick?.invoke(reason) }
@@ -58,7 +57,7 @@ fun ReasonChip(
 
     Surface(
         onClick = onClick,
-        shape = RoundedCornerShape(12.dp),
+        shape = MaterialTheme.shapes.medium,
         color = backgroundColor,
         modifier = modifier.height(24.dp)
     ) {
@@ -93,7 +92,7 @@ fun ReasonChipDisplay(
     val (backgroundColor, contentColor) = getChipColors(reason)
 
     Surface(
-        shape = RoundedCornerShape(12.dp),
+        shape = MaterialTheme.shapes.medium,
         color = backgroundColor,
         modifier = modifier.height(24.dp)
     ) {

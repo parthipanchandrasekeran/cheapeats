@@ -9,7 +9,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Place
@@ -177,7 +176,7 @@ private fun OpenStatusBadge(isOpen: Boolean?) {
 
     Surface(
         color = color.copy(alpha = 0.15f),
-        shape = RoundedCornerShape(4.dp)
+        shape = MaterialTheme.shapes.extraSmall
     ) {
         Text(
             text = text,

@@ -5,8 +5,25 @@ import android.Manifest
 import android.annotation.SuppressLint
 import android.content.Context
 import android.location.Location
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.Crossfade
+import androidx.compose.animation.SizeTransform
+import androidx.compose.animation.core.MutableTransitionState
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.expandHorizontally
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkHorizontally
+import androidx.compose.animation.shrinkVertically
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -20,15 +37,15 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.MoreVert
-import androidx.compose.material.icons.filled.Place
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.AlertDialog
@@ -54,6 +71,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -67,12 +85,19 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.scale
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalHapticFeedback
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -91,6 +116,7 @@ import com.parthipan.cheapeats.data.TipProduct
 import com.parthipan.cheapeats.data.TransitHelper
 import com.parthipan.cheapeats.data.VertexAiService
 import com.parthipan.cheapeats.data.sampleRestaurants
+import com.parthipan.cheapeats.ui.components.ShimmerRestaurantList
 import com.parthipan.cheapeats.ui.detail.RestaurantDetailScreen
 import com.parthipan.cheapeats.ui.filter.FilterBar
 import com.parthipan.cheapeats.ui.filter.FilterViewModel
@@ -104,9 +130,10 @@ import androidx.compose.material.icons.filled.Settings
 import com.parthipan.cheapeats.data.database.AppDatabase
 import com.parthipan.cheapeats.data.lunchroute.RouteStart
 import com.parthipan.cheapeats.data.settings.CacheStats
-import com.parthipan.cheapeats.data.settings.ThemeMode
 import com.parthipan.cheapeats.data.settings.UserSettings
 import com.parthipan.cheapeats.ui.settings.SettingsBottomSheet
+import com.parthipan.cheapeats.data.favorites.ViewHistoryEntry
+import com.parthipan.cheapeats.data.favorites.ViewSource
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -155,6 +182,9 @@ fun HomeScreen(
     var locationError by remember { mutableStateOf<String?>(null) }
     var isInTorontoArea by remember { mutableStateOf(true) } // Default to true, update when location known
 
+    // Pull-to-refresh state
+    var isRefreshing by remember { mutableStateOf(false) }
+
     // Navigation state for restaurant detail
     var selectedRestaurant by remember { mutableStateOf<Restaurant?>(null) }
 
@@ -181,6 +211,9 @@ fun HomeScreen(
     // Favorites manager
     val favoritesManager = remember { FavoritesManager(context) }
     val favoriteIds by favoritesManager.favoriteIds.collectAsState()
+
+    // Trending restaurants
+    var trendingRestaurants by remember { mutableStateOf<List<Pair<Restaurant, Int>>>(emptyList()) }
 
     // Initialize billing on start
     DisposableEffect(Unit) {
@@ -210,6 +243,20 @@ fun HomeScreen(
     }
 
 
+    // Load trending restaurants
+    LaunchedEffect(restaurants) {
+        if (database != null && restaurants.isNotEmpty()) {
+            val sevenDaysAgo = System.currentTimeMillis() - 7 * 24 * 60 * 60 * 1000L
+            val mostViewed = withContext(Dispatchers.IO) {
+                database.viewHistoryDao().getMostViewed(since = sevenDaysAgo, limit = 5)
+            }
+            val restaurantMap = restaurants.associateBy { it.id }
+            trendingRestaurants = mostViewed.mapNotNull { result ->
+                restaurantMap[result.restaurantId]?.let { it to result.viewCount }
+            }
+        }
+    }
+
     // Collect filter state
     val filterState by filterViewModel.filterState.collectAsState()
 
@@ -228,6 +275,17 @@ fun HomeScreen(
             }
         } else {
             selectedRestaurant = restaurant
+            // Record view for trending
+            if (database != null) {
+                scope.launch(Dispatchers.IO) {
+                    database.viewHistoryDao().recordView(
+                        ViewHistoryEntry(
+                            restaurantId = restaurant.id,
+                            source = ViewSource.SEARCH
+                        )
+                    )
+                }
+            }
         }
     }
 
@@ -252,6 +310,21 @@ fun HomeScreen(
         }
     }
 
+    // Refresh function for pull-to-refresh
+    val refreshRestaurants: suspend () -> Unit = {
+        if (placesService != null && userLocation != null) {
+            try {
+                val nearbyRestaurants = withContext(Dispatchers.IO) {
+                    placesService.searchNearbyRestaurants(userLocation!!)
+                }
+                if (nearbyRestaurants.isNotEmpty()) {
+                    restaurants = nearbyRestaurants
+                    searchFilteredRestaurants = restaurants
+                }
+            } catch (_: Exception) { }
+        }
+    }
+
     // Fetch location and restaurants when permissions granted
     LaunchedEffect(locationPermissions.allPermissionsGranted) {
         if (locationPermissions.allPermissionsGranted) {
@@ -266,8 +339,8 @@ fun HomeScreen(
                 }
 
                 // Fallback to Toronto Union Station if location unavailable
-                val finalLatitude = location?.latitude ?: 43.6453
-                val finalLongitude = location?.longitude ?: -79.3806
+                val finalLatitude = location?.latitude ?: 43.7515
+                val finalLongitude = location?.longitude ?: -79.3440
 
                 userLocation = LatLng(finalLatitude, finalLongitude)
 
@@ -324,304 +397,374 @@ fun HomeScreen(
         }
     }
 
-    // Show detail screen if a restaurant is selected
-    if (selectedRestaurant != null) {
-        RestaurantDetailScreen(
-            restaurant = selectedRestaurant!!,
-            showUnder15Only = filterState.isUnder15Active,
-            onBackClick = { selectedRestaurant = null }
-        )
-        return
-    }
-
-    Scaffold(
-        modifier = modifier,
-        snackbarHost = {
-            SnackbarHost(hostState = snackbarHostState) { data ->
-                Snackbar(
-                    snackbarData = data,
-                    containerColor = MaterialTheme.colorScheme.errorContainer,
-                    contentColor = MaterialTheme.colorScheme.onErrorContainer
-                )
-            }
+    // Screen transition: detail slide-up vs home screen
+    AnimatedContent(
+        targetState = selectedRestaurant,
+        transitionSpec = {
+            if (targetState != null) {
+                // Entering detail
+                (slideInVertically(tween(300)) { it / 4 } + fadeIn(tween(300)))
+                    .togetherWith(fadeOut(tween(200)))
+            } else {
+                // Exiting detail
+                fadeIn(tween(300))
+                    .togetherWith(slideOutVertically(tween(200)) { it / 4 } + fadeOut(tween(200)))
+            }.using(SizeTransform(clip = false))
         },
-        topBar = {
-            TopAppBar(
-                title = {
-                    Text(
-                        text = "CheapEats",
-                        fontWeight = FontWeight.Bold
+        label = "screen_transition"
+    ) { restaurant ->
+        if (restaurant != null) {
+            RestaurantDetailScreen(
+                restaurant = restaurant,
+                onBackClick = { selectedRestaurant = null }
+            )
+        } else {
+            Scaffold(
+                modifier = modifier,
+                snackbarHost = {
+                    SnackbarHost(hostState = snackbarHostState) { data ->
+                        Snackbar(
+                            snackbarData = data,
+                            containerColor = MaterialTheme.colorScheme.errorContainer,
+                            contentColor = MaterialTheme.colorScheme.onErrorContainer
+                        )
+                    }
+                },
+                topBar = {
+                    TopAppBar(
+                        title = {
+                            Text(
+                                text = "CheapEats",
+                                fontWeight = FontWeight.Bold
+                            )
+                        },
+                        actions = {
+                            // Lunch Route button with text
+                            androidx.compose.material3.TextButton(
+                                onClick = { showLunchRoute = true },
+                                colors = androidx.compose.material3.ButtonDefaults.textButtonColors(
+                                    contentColor = MaterialTheme.colorScheme.onPrimary
+                                )
+                            ) {
+                                Text(
+                                    text = "Lunch",
+                                    style = MaterialTheme.typography.labelLarge,
+                                    fontWeight = FontWeight.Medium
+                                )
+                            }
+                            // View mode toggle with text label
+                            androidx.compose.material3.TextButton(
+                                onClick = {
+                                    viewMode = if (viewMode == ViewMode.LIST) ViewMode.MAP else ViewMode.LIST
+                                },
+                                colors = androidx.compose.material3.ButtonDefaults.textButtonColors(
+                                    contentColor = MaterialTheme.colorScheme.onPrimary
+                                )
+                            ) {
+                                Text(
+                                    text = if (viewMode == ViewMode.LIST) "Map" else "List",
+                                    style = MaterialTheme.typography.labelLarge,
+                                    fontWeight = FontWeight.Medium
+                                )
+                            }
+                            Box {
+                                IconButton(onClick = { showMenu = true }) {
+                                    Icon(
+                                        imageVector = Icons.Default.MoreVert,
+                                        contentDescription = "Menu"
+                                    )
+                                }
+                                DropdownMenu(
+                                    expanded = showMenu,
+                                    onDismissRequest = { showMenu = false }
+                                ) {
+                                    DropdownMenuItem(
+                                        text = { Text("Settings") },
+                                        onClick = {
+                                            showMenu = false
+                                            showSettings = true
+                                        },
+                                        leadingIcon = {
+                                            Icon(
+                                                imageVector = Icons.Default.Settings,
+                                                contentDescription = null
+                                            )
+                                        }
+                                    )
+                                    DropdownMenuItem(
+                                        text = { Text("Thank the Developer") },
+                                        onClick = {
+                                            showMenu = false
+                                            showTipDialog = true
+                                        },
+                                        leadingIcon = {
+                                            Icon(
+                                                imageVector = Icons.Default.Favorite,
+                                                contentDescription = null,
+                                                tint = MaterialTheme.colorScheme.primary
+                                            )
+                                        }
+                                    )
+                                }
+                            }
+                        },
+                        colors = TopAppBarDefaults.topAppBarColors(
+                            containerColor = MaterialTheme.colorScheme.primary,
+                            titleContentColor = MaterialTheme.colorScheme.onPrimary,
+                            actionIconContentColor = MaterialTheme.colorScheme.onPrimary
+                        )
                     )
                 },
-                actions = {
-                    // Lunch Route button with text
-                    androidx.compose.material3.TextButton(
-                        onClick = { showLunchRoute = true },
-                        colors = androidx.compose.material3.ButtonDefaults.textButtonColors(
-                            contentColor = MaterialTheme.colorScheme.onPrimary
-                        )
-                    ) {
-                        Text(
-                            text = "Lunch",
-                            style = MaterialTheme.typography.labelLarge,
-                            fontWeight = FontWeight.Medium
-                        )
-                    }
-                    // View mode toggle with text label
-                    androidx.compose.material3.TextButton(
-                        onClick = {
-                            viewMode = if (viewMode == ViewMode.LIST) ViewMode.MAP else ViewMode.LIST
-                        },
-                        colors = androidx.compose.material3.ButtonDefaults.textButtonColors(
-                            contentColor = MaterialTheme.colorScheme.onPrimary
-                        )
-                    ) {
-                        Text(
-                            text = if (viewMode == ViewMode.LIST) "Map" else "List",
-                            style = MaterialTheme.typography.labelLarge,
-                            fontWeight = FontWeight.Medium
-                        )
-                    }
-                    Box {
-                        IconButton(onClick = { showMenu = true }) {
-                            Icon(
-                                imageVector = Icons.Default.MoreVert,
-                                contentDescription = "Menu"
-                            )
+                containerColor = MaterialTheme.colorScheme.background
+            ) { innerPadding ->
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(innerPadding)
+                ) {
+                    if (viewMode == ViewMode.LIST) {
+                        // First-time user tip
+                        if (showFirstTimeTip) {
+                            Card(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                                colors = CardDefaults.cardColors(
+                                    containerColor = MaterialTheme.colorScheme.primaryContainer
+                                ),
+                                shape = MaterialTheme.shapes.medium
+                            ) {
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(12.dp),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text(
+                                        text = "Tip: CheapEats works best near TTC stations during lunch hours",
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color = MaterialTheme.colorScheme.onPrimaryContainer,
+                                        modifier = Modifier.weight(1f)
+                                    )
+                                    TextButton(
+                                        onClick = { showFirstTimeTip = false }
+                                    ) {
+                                        Text("Got it")
+                                    }
+                                }
+                            }
                         }
-                        DropdownMenu(
-                            expanded = showMenu,
-                            onDismissRequest = { showMenu = false }
-                        ) {
-                            DropdownMenuItem(
-                                text = { Text("Settings") },
-                                onClick = {
-                                    showMenu = false
-                                    showSettings = true
-                                },
-                                leadingIcon = {
-                                    Icon(
-                                        imageVector = Icons.Default.Settings,
-                                        contentDescription = null
+
+                        // Search Field
+                        OutlinedTextField(
+                            value = searchQuery,
+                            onValueChange = { searchQuery = it },
+                            placeholder = {
+                                Text(
+                                    if (vertexAiService != null)
+                                        "Try: \"cheap Mexican food\"..."
+                                    else
+                                        "Search restaurants..."
+                                )
+                            },
+                            leadingIcon = {
+                                Icon(
+                                    imageVector = Icons.Default.Search,
+                                    contentDescription = "Search"
+                                )
+                            },
+                            trailingIcon = {
+                                if (isSearching) {
+                                    CircularProgressIndicator(
+                                        modifier = Modifier.size(20.dp),
+                                        strokeWidth = 2.dp
                                     )
                                 }
-                            )
-                            DropdownMenuItem(
-                                text = { Text("Thank the Developer") },
-                                onClick = {
-                                    showMenu = false
-                                    showTipDialog = true
-                                },
-                                leadingIcon = {
-                                    Icon(
-                                        imageVector = Icons.Default.Favorite,
-                                        contentDescription = null,
-                                        tint = MaterialTheme.colorScheme.primary
-                                    )
-                                }
-                            )
-                        }
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.primary,
-                    titleContentColor = MaterialTheme.colorScheme.onPrimary,
-                    actionIconContentColor = MaterialTheme.colorScheme.onPrimary
-                )
-            )
-        },
-        containerColor = MaterialTheme.colorScheme.background
-    ) { innerPadding ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(innerPadding)
-        ) {
-            if (viewMode == ViewMode.LIST) {
-                // First-time user tip
-                if (showFirstTimeTip) {
-                    Card(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 16.dp, vertical = 8.dp),
-                        colors = CardDefaults.cardColors(
-                            containerColor = MaterialTheme.colorScheme.primaryContainer
-                        )
-                    ) {
-                        Row(
+                            },
+                            singleLine = true,
+                            shape = MaterialTheme.shapes.extraLarge,
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedBorderColor = MaterialTheme.colorScheme.primary,
+                                unfocusedBorderColor = MaterialTheme.colorScheme.outline
+                            ),
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(12.dp),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text(
-                                text = "Tip: CheapEats works best near TTC stations during lunch hours",
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onPrimaryContainer,
-                                modifier = Modifier.weight(1f)
-                            )
-                            TextButton(
-                                onClick = { showFirstTimeTip = false }
+                                .padding(horizontal = 16.dp, vertical = 8.dp)
+                        )
+
+                        // Filter Bar - horizontal scrollable chips
+                        // TTC filter only shown when user is in Toronto area
+                        FilterBar(
+                            filterViewModel = filterViewModel,
+                            showTTCFilter = isInTorontoArea,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+
+                        // Quick Pick card
+                        aiRecommendation?.let { recommendation ->
+                            Card(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                                colors = CardDefaults.cardColors(
+                                    containerColor = MaterialTheme.colorScheme.secondaryContainer
+                                ),
+                                shape = MaterialTheme.shapes.medium
                             ) {
-                                Text("Got it")
+                                Column(modifier = Modifier.padding(12.dp)) {
+                                    Text(
+                                        text = "Quick Pick",
+                                        style = MaterialTheme.typography.labelMedium,
+                                        fontWeight = FontWeight.Bold,
+                                        color = MaterialTheme.colorScheme.onSecondaryContainer
+                                    )
+                                    Spacer(modifier = Modifier.height(4.dp))
+                                    Text(
+                                        text = recommendation,
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color = MaterialTheme.colorScheme.onSecondaryContainer
+                                    )
+                                }
                             }
                         }
-                    }
-                }
 
-                // Search Field
-                OutlinedTextField(
-                    value = searchQuery,
-                    onValueChange = { searchQuery = it },
-                    placeholder = {
-                        Text(
-                            if (vertexAiService != null)
-                                "Try: \"cheap Mexican food\"..."
-                            else
-                                "Search restaurants..."
-                        )
-                    },
-                    leadingIcon = {
-                        Icon(
-                            imageVector = Icons.Default.Search,
-                            contentDescription = "Search"
-                        )
-                    },
-                    trailingIcon = {
-                        if (isSearching) {
-                            CircularProgressIndicator(
-                                modifier = Modifier.size(20.dp),
-                                strokeWidth = 2.dp
-                            )
-                        }
-                    },
-                    singleLine = true,
-                    shape = RoundedCornerShape(28.dp),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = MaterialTheme.colorScheme.primary,
-                        unfocusedBorderColor = MaterialTheme.colorScheme.outline
-                    ),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 8.dp)
-                )
-
-                // Filter Bar - horizontal scrollable chips
-                // TTC filter only shown when user is in Toronto area
-                FilterBar(
-                    filterViewModel = filterViewModel,
-                    showTTCFilter = isInTorontoArea,
-                    modifier = Modifier.fillMaxWidth()
-                )
-
-                // Quick Pick card
-                aiRecommendation?.let { recommendation ->
-                    Card(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 16.dp, vertical = 8.dp),
-                        colors = CardDefaults.cardColors(
-                            containerColor = MaterialTheme.colorScheme.secondaryContainer
-                        )
-                    ) {
-                        Column(modifier = Modifier.padding(12.dp)) {
-                            Text(
-                                text = "Quick Pick",
-                                style = MaterialTheme.typography.labelMedium,
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.onSecondaryContainer
-                            )
-                            Spacer(modifier = Modifier.height(4.dp))
-                            Text(
-                                text = recommendation,
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSecondaryContainer
-                            )
-                        }
-                    }
-                }
-
-                // Active filters info
-                if (filterState.hasActiveFilters) {
-                    Text(
-                        text = "${displayedRestaurants.size} of ${searchFilteredRestaurants.size} restaurants",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(horizontal = 24.dp, vertical = 4.dp)
-                    )
-                }
-            }
-
-            when (viewMode) {
-                ViewMode.LIST -> {
-                    if (isLoadingRestaurants) {
-                        Box(
-                            modifier = Modifier.fillMaxSize(),
-                            contentAlignment = Alignment.Center
+                        // Active filters info with animated count (#5)
+                        AnimatedVisibility(
+                            visible = filterState.hasActiveFilters,
+                            enter = fadeIn() + expandVertically(),
+                            exit = fadeOut() + shrinkVertically()
                         ) {
-                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                CircularProgressIndicator()
-                                Spacer(modifier = Modifier.height(16.dp))
-                                Text(
-                                    text = "Finding restaurants near you...",
-                                    style = MaterialTheme.typography.bodyMedium
-                                )
-                            }
-                        }
-                    } else if (!locationPermissions.allPermissionsGranted) {
-                        Box(
-                            modifier = Modifier.fillMaxSize(),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Column(
-                                horizontalAlignment = Alignment.CenterHorizontally,
-                                modifier = Modifier.padding(32.dp)
+                            Row(
+                                modifier = Modifier.padding(horizontal = 24.dp, vertical = 4.dp)
                             ) {
-                                Icon(
-                                    imageVector = Icons.Default.LocationOn,
-                                    contentDescription = null,
-                                    modifier = Modifier.size(64.dp),
-                                    tint = MaterialTheme.colorScheme.primary
-                                )
-                                Spacer(modifier = Modifier.height(16.dp))
+                                AnimatedContent(
+                                    targetState = displayedRestaurants.size,
+                                    transitionSpec = {
+                                        if (targetState > initialState) {
+                                            (slideInVertically { -it } + fadeIn())
+                                                .togetherWith(slideOutVertically { it } + fadeOut())
+                                        } else {
+                                            (slideInVertically { it } + fadeIn())
+                                                .togetherWith(slideOutVertically { -it } + fadeOut())
+                                        }
+                                    },
+                                    label = "filter_count"
+                                ) { count ->
+                                    Text(
+                                        text = "$count",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
                                 Text(
-                                    text = "Location permission required",
-                                    style = MaterialTheme.typography.titleMedium,
-                                    textAlign = TextAlign.Center
-                                )
-                                Spacer(modifier = Modifier.height(8.dp))
-                                Text(
-                                    text = "Enable location to find restaurants near you",
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    textAlign = TextAlign.Center,
-                                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
+                                    text = " of ${searchFilteredRestaurants.size} restaurants",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                             }
                         }
-                    } else {
-                        // Apply favorites to displayed restaurants
-                        val restaurantsWithFavorites = displayedRestaurants.map { restaurant ->
-                            restaurant.copy(isFavorite = restaurant.id in favoriteIds)
-                        }
-                        RestaurantList(
-                            restaurants = restaurantsWithFavorites,
-                            onRestaurantClick = onRestaurantClick,
-                            onFavoriteToggle = { restaurantId ->
-                                favoritesManager.toggleFavorite(restaurantId)
-                            },
-                            showPriceConfidence = filterState.isUnder15Active &&
-                                filterState.priceFilterMode == com.parthipan.cheapeats.ui.filter.PriceFilterMode.FLEXIBLE,
-                            modifier = Modifier.fillMaxSize()
-                        )
                     }
-                }
-                ViewMode.MAP -> {
-                    MapScreen(
-                        restaurants = displayedRestaurants,
-                        userLocation = userLocation,
-                        modifier = Modifier.fillMaxSize()
-                    )
+
+                    // List ↔ Map crossfade (#2)
+                    Crossfade(
+                        targetState = viewMode,
+                        animationSpec = tween(300),
+                        label = "view_mode_crossfade"
+                    ) { currentViewMode ->
+                        when (currentViewMode) {
+                            ViewMode.LIST -> {
+                                // Content state transitions (#4)
+                                val contentState = when {
+                                    isLoadingRestaurants -> "loading"
+                                    !locationPermissions.allPermissionsGranted -> "permission"
+                                    else -> "content"
+                                }
+
+                                Crossfade(
+                                    targetState = contentState,
+                                    animationSpec = tween(400),
+                                    label = "content_state_crossfade"
+                                ) { state ->
+                                    when (state) {
+                                        "loading" -> {
+                                            ShimmerRestaurantList(
+                                                modifier = Modifier.fillMaxSize()
+                                            )
+                                        }
+                                        "permission" -> {
+                                            Box(
+                                                modifier = Modifier.fillMaxSize(),
+                                                contentAlignment = Alignment.Center
+                                            ) {
+                                                Column(
+                                                    horizontalAlignment = Alignment.CenterHorizontally,
+                                                    modifier = Modifier.padding(32.dp)
+                                                ) {
+                                                    Icon(
+                                                        imageVector = Icons.Default.LocationOn,
+                                                        contentDescription = null,
+                                                        modifier = Modifier.size(64.dp),
+                                                        tint = MaterialTheme.colorScheme.primary
+                                                    )
+                                                    Spacer(modifier = Modifier.height(16.dp))
+                                                    Text(
+                                                        text = "Location permission required",
+                                                        style = MaterialTheme.typography.titleMedium,
+                                                        textAlign = TextAlign.Center
+                                                    )
+                                                    Spacer(modifier = Modifier.height(8.dp))
+                                                    Text(
+                                                        text = "Enable location to find restaurants near you",
+                                                        style = MaterialTheme.typography.bodyMedium,
+                                                        textAlign = TextAlign.Center,
+                                                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
+                                                    )
+                                                }
+                                            }
+                                        }
+                                        else -> {
+                                            // Apply favorites to displayed restaurants
+                                            val restaurantsWithFavorites = displayedRestaurants.map { r ->
+                                                r.copy(isFavorite = r.id in favoriteIds)
+                                            }
+
+                                            PullToRefreshBox(
+                                                isRefreshing = isRefreshing,
+                                                onRefresh = {
+                                                    scope.launch {
+                                                        isRefreshing = true
+                                                        refreshRestaurants()
+                                                        isRefreshing = false
+                                                    }
+                                                },
+                                                modifier = Modifier.fillMaxSize()
+                                            ) {
+                                                RestaurantList(
+                                                    restaurants = restaurantsWithFavorites,
+                                                    onRestaurantClick = onRestaurantClick,
+                                                    onFavoriteToggle = { restaurantId ->
+                                                        favoritesManager.toggleFavorite(restaurantId)
+                                                    },
+                                                    showPriceConfidence = filterState.isUnder15Active &&
+                                                        filterState.priceFilterMode == com.parthipan.cheapeats.ui.filter.PriceFilterMode.FLEXIBLE,
+                                                    trendingRestaurants = trendingRestaurants,
+                                                    modifier = Modifier.fillMaxSize()
+                                                )
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                            ViewMode.MAP -> {
+                                MapScreen(
+                                    restaurants = displayedRestaurants,
+                                    userLocation = userLocation,
+                                    modifier = Modifier.fillMaxSize()
+                                )
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -835,47 +978,208 @@ fun RestaurantList(
     onRestaurantClick: (Restaurant) -> Unit,
     onFavoriteToggle: (String) -> Unit,
     showPriceConfidence: Boolean = false,
+    trendingRestaurants: List<Pair<Restaurant, Int>> = emptyList(),
     modifier: Modifier = Modifier
 ) {
-    if (restaurants.isEmpty()) {
-        Box(
-            modifier = modifier,
-            contentAlignment = Alignment.Center
+    Box(modifier = modifier) {
+        // Empty state
+        AnimatedVisibility(
+            visible = restaurants.isEmpty(),
+            enter = fadeIn(tween(400)),
+            exit = fadeOut(tween(200))
         ) {
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally,
-                modifier = Modifier.padding(32.dp)
+            Box(
+                modifier = Modifier.fillMaxSize(),
+                contentAlignment = Alignment.Center
             ) {
-                Text(
-                    text = "No restaurants found",
-                    style = MaterialTheme.typography.titleMedium,
-                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
-                )
-                Spacer(modifier = Modifier.height(8.dp))
-                Text(
-                    text = "Try adjusting your filters",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    modifier = Modifier.padding(32.dp)
+                ) {
+                    Text(
+                        text = "No restaurants found",
+                        style = MaterialTheme.typography.titleMedium,
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = "Try adjusting your filters",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
+                    )
+                }
+            }
+        }
+
+        // Loaded state
+        AnimatedVisibility(
+            visible = restaurants.isNotEmpty(),
+            enter = fadeIn(tween(400)),
+            exit = fadeOut(tween(200))
+        ) {
+            LazyColumn(
+                modifier = Modifier.fillMaxSize(),
+                contentPadding = PaddingValues(16.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                // Trending section
+                if (trendingRestaurants.size >= 3) {
+                    item(key = "trending_section", contentType = "trending") {
+                        TrendingSection(
+                            trendingRestaurants = trendingRestaurants,
+                            onRestaurantClick = onRestaurantClick
+                        )
+                    }
+                }
+
+                itemsIndexed(
+                    items = restaurants,
+                    key = { _, restaurant -> restaurant.id },
+                    contentType = { _, _ -> "restaurant_card" }
+                ) { index, restaurant ->
+                    val visibleState = remember {
+                        MutableTransitionState(false).apply { targetState = true }
+                    }
+                    AnimatedVisibility(
+                        visibleState = visibleState,
+                        enter = fadeIn(tween(300, delayMillis = index * 50)) +
+                                slideInVertically(tween(300, delayMillis = index * 50)) { it / 4 }
+                    ) {
+                        RestaurantCard(
+                            restaurant = restaurant,
+                            onClick = { onRestaurantClick(restaurant) },
+                            onFavoriteToggle = { onFavoriteToggle(restaurant.id) },
+                            showPriceConfidence = showPriceConfidence,
+                            modifier = Modifier.animateItem()
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun TrendingSection(
+    trendingRestaurants: List<Pair<Restaurant, Int>>,
+    onRestaurantClick: (Restaurant) -> Unit
+) {
+    Column {
+        Text(
+            text = "Popular Near You",
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.Bold,
+            modifier = Modifier.padding(bottom = 8.dp)
+        )
+        LazyRow(
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            items(
+                items = trendingRestaurants,
+                key = { (restaurant, _) -> "trending_${restaurant.id}" }
+            ) { (restaurant, viewCount) ->
+                TrendingCard(
+                    restaurant = restaurant,
+                    viewCount = viewCount,
+                    onClick = { onRestaurantClick(restaurant) }
                 )
             }
         }
-    } else {
-        LazyColumn(
-            modifier = modifier,
-            contentPadding = PaddingValues(16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            items(
-                items = restaurants,
-                key = { it.id },
-                contentType = { "restaurant_card" }
-            ) { restaurant ->
-                RestaurantCard(
-                    restaurant = restaurant,
-                    onClick = { onRestaurantClick(restaurant) },
-                    onFavoriteToggle = { onFavoriteToggle(restaurant.id) },
-                    showPriceConfidence = showPriceConfidence
+    }
+}
+
+@Composable
+private fun TrendingCard(
+    restaurant: Restaurant,
+    viewCount: Int,
+    onClick: () -> Unit
+) {
+    val hapticFeedback = LocalHapticFeedback.current
+
+    Card(
+        modifier = Modifier
+            .width(140.dp)
+            .clickable {
+                hapticFeedback.performHapticFeedback(HapticFeedbackType.LongPress)
+                onClick()
+            },
+        shape = MaterialTheme.shapes.medium,
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surface
+        ),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+    ) {
+        Column {
+            // Image
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(80.dp)
+                    .clip(MaterialTheme.shapes.medium)
+            ) {
+                val placeholderColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(placeholderColor),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = restaurant.name.take(1),
+                        style = MaterialTheme.typography.headlineSmall,
+                        color = MaterialTheme.colorScheme.primary,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+                if (restaurant.imageUrl != null) {
+                    AsyncImage(
+                        model = ImageRequest.Builder(LocalContext.current)
+                            .data(restaurant.imageUrl)
+                            .crossfade(200)
+                            .size(300)
+                            .memoryCacheKey("trending_${restaurant.id}")
+                            .diskCacheKey("trending_${restaurant.id}")
+                            .build(),
+                        contentDescription = restaurant.name,
+                        contentScale = ContentScale.Crop,
+                        modifier = Modifier.fillMaxSize()
+                    )
+                }
+            }
+
+            // Info
+            Column(modifier = Modifier.padding(8.dp)) {
+                Text(
+                    text = restaurant.name,
+                    style = MaterialTheme.typography.labelMedium,
+                    fontWeight = FontWeight.Bold,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
                 )
+                Text(
+                    text = restaurant.cuisine,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                // View count badge
+                Box(
+                    modifier = Modifier
+                        .background(
+                            MaterialTheme.colorScheme.primary,
+                            shape = MaterialTheme.shapes.extraSmall
+                        )
+                        .padding(horizontal = 6.dp, vertical = 2.dp)
+                ) {
+                    Text(
+                        text = "$viewCount views",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onPrimary,
+                        fontWeight = FontWeight.Medium
+                    )
+                }
             }
         }
     }
@@ -889,52 +1193,72 @@ fun RestaurantCard(
     showPriceConfidence: Boolean = false,
     modifier: Modifier = Modifier
 ) {
+    // Haptic feedback
+    val hapticFeedback = LocalHapticFeedback.current
+
+    // Card press animation
+    var isPressed by remember { mutableStateOf(false) }
+    val scale by androidx.compose.animation.core.animateFloatAsState(
+        targetValue = if (isPressed) 0.97f else 1f,
+        animationSpec = spring(
+            dampingRatio = 0.75f,
+            stiffness = 800f
+        ),
+        label = "card_scale"
+    )
+
     Card(
         modifier = modifier
             .fillMaxWidth()
-            .clickable(onClick = onClick),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+            .scale(scale)
+            .pointerInput(Unit) {
+                detectTapGestures(
+                    onPress = {
+                        isPressed = true
+                        hapticFeedback.performHapticFeedback(HapticFeedbackType.LongPress)
+                        tryAwaitRelease()
+                        isPressed = false
+                    },
+                    onTap = { onClick() }
+                )
+            },
+        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
+        shape = MaterialTheme.shapes.medium,
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surface
         )
     ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(12.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            // Restaurant image with favorite icon overlay
-            // Restaurant image placeholder (shown immediately)
-            val placeholderColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.2f)
-            val primaryColor = MaterialTheme.colorScheme.primary
-
+        Column {
+            // Full-width image area
             Box(
                 modifier = Modifier
-                    .size(80.dp)
-                    .clip(RoundedCornerShape(8.dp))
-                    .background(placeholderColor)
+                    .fillMaxWidth()
+                    .height(160.dp)
+                    .clip(MaterialTheme.shapes.medium)
             ) {
-                // Always show letter placeholder first for instant feedback
+                // Letter placeholder background
+                val placeholderColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)
                 Box(
-                    modifier = Modifier.fillMaxSize(),
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(placeholderColor),
                     contentAlignment = Alignment.Center
                 ) {
                     Text(
                         text = restaurant.name.take(1),
-                        style = MaterialTheme.typography.headlineMedium,
-                        color = primaryColor,
+                        style = MaterialTheme.typography.displayMedium,
+                        color = MaterialTheme.colorScheme.primary,
                         fontWeight = FontWeight.Bold
                     )
                 }
 
-                // Load image on top if available
+                // Load actual image on top
                 if (restaurant.imageUrl != null) {
                     AsyncImage(
                         model = ImageRequest.Builder(LocalContext.current)
                             .data(restaurant.imageUrl)
                             .crossfade(200)
-                            .size(160) // Request smaller size for thumbnails
+                            .size(400) // Higher res for card image
                             .memoryCacheKey(restaurant.id)
                             .diskCacheKey(restaurant.id)
                             .build(),
@@ -944,43 +1268,159 @@ fun RestaurantCard(
                     )
                 }
 
-                // Favorite heart icon with background for visibility
+                // Gradient overlay at bottom of image
                 Box(
                     modifier = Modifier
-                        .align(Alignment.TopEnd)
-                        .padding(4.dp)
-                        .size(28.dp)
-                        .clip(RoundedCornerShape(14.dp))
-                        .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.85f))
-                        .clickable { onFavoriteToggle() },
+                        .fillMaxWidth()
+                        .height(72.dp)
+                        .align(Alignment.BottomCenter)
+                        .background(
+                            Brush.verticalGradient(
+                                colors = listOf(
+                                    Color.Transparent,
+                                    Color.Black.copy(alpha = 0.7f)
+                                )
+                            )
+                        )
+                )
+
+                // Restaurant name + cuisine on gradient
+                Column(
+                    modifier = Modifier
+                        .align(Alignment.BottomStart)
+                        .padding(12.dp)
+                ) {
+                    Text(
+                        text = restaurant.name,
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = Color.White,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    Text(
+                        text = restaurant.cuisine,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = Color.White.copy(alpha = 0.85f)
+                    )
+                }
+
+                // Rating badge top-right
+                if (restaurant.rating > 0) {
+                    Row(
+                        modifier = Modifier
+                            .align(Alignment.TopEnd)
+                            .padding(8.dp)
+                            .background(
+                                Color.Black.copy(alpha = 0.6f),
+                                shape = MaterialTheme.shapes.small
+                            )
+                            .padding(horizontal = 8.dp, vertical = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Star,
+                            contentDescription = null,
+                            modifier = Modifier.size(14.dp),
+                            tint = Color(0xFFFFB300)
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(
+                            text = String.format("%.1f", restaurant.rating),
+                            style = MaterialTheme.typography.labelMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = Color.White
+                        )
+                    }
+                }
+
+                // Favorite heart top-left with bounce animation
+                var heartBounce by remember { mutableStateOf(false) }
+                val heartBounceScale by androidx.compose.animation.core.animateFloatAsState(
+                    targetValue = if (heartBounce) 1.3f else 1f,
+                    animationSpec = spring(
+                        dampingRatio = 0.4f,
+                        stiffness = 600f
+                    ),
+                    finishedListener = { heartBounce = false },
+                    label = "heart_bounce"
+                )
+
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.TopStart)
+                        .padding(8.dp)
+                        .size(32.dp)
+                        .background(
+                            Color.Black.copy(alpha = 0.5f),
+                            shape = CircleShape
+                        )
+                        .clickable {
+                            hapticFeedback.performHapticFeedback(HapticFeedbackType.LongPress)
+                            heartBounce = true
+                            onFavoriteToggle()
+                        },
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
                         imageVector = if (restaurant.isFavorite) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
                         contentDescription = if (restaurant.isFavorite) "Remove from favorites" else "Add to favorites",
-                        tint = if (restaurant.isFavorite) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.size(18.dp)
+                        tint = if (restaurant.isFavorite) Color(0xFFFF4444) else Color.White,
+                        modifier = Modifier
+                            .size(18.dp)
+                            .scale(heartBounceScale)
                     )
                 }
             }
 
-            Spacer(modifier = Modifier.width(12.dp))
-
+            // Content below image
             Column(
-                modifier = Modifier.weight(1f)
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(12.dp)
             ) {
+                // Price + distance row
                 Row(
+                    modifier = Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
+                    if (restaurant.averagePrice != null) {
+                        Text(
+                            text = "~\$${String.format("%.0f", restaurant.averagePrice)} CAD",
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                    } else if (restaurant.priceLevel > 0) {
+                        Text(
+                            text = restaurant.pricePoint,
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                    }
+                    if (showPriceConfidence && restaurant.priceConfidenceLabel.isNotEmpty()) {
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(
+                            text = restaurant.priceConfidenceLabel,
+                            style = MaterialTheme.typography.labelSmall,
+                            color = when (restaurant.priceSource) {
+                                com.parthipan.cheapeats.data.PriceSource.API_VERIFIED ->
+                                    Color(0xFF4CAF50)
+                                com.parthipan.cheapeats.data.PriceSource.ESTIMATED ->
+                                    Color(0xFFFF9800)
+                                else -> MaterialTheme.colorScheme.onSurfaceVariant
+                            }
+                        )
+                    }
+                    Spacer(modifier = Modifier.weight(1f))
                     Text(
-                        text = restaurant.name,
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.SemiBold,
-                        color = MaterialTheme.colorScheme.onSurface,
-                        modifier = Modifier.weight(1f, fill = false)
+                        text = String.format("%.1f km", restaurant.distance),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     if (restaurant.isSponsored) {
-                        Spacer(modifier = Modifier.width(4.dp))
+                        Spacer(modifier = Modifier.width(8.dp))
                         Text(
                             text = "AD",
                             style = MaterialTheme.typography.labelSmall,
@@ -990,89 +1430,46 @@ fun RestaurantCard(
                     }
                 }
 
-                Spacer(modifier = Modifier.height(4.dp))
-
-                Row(
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    if (restaurant.rating > 0) {
-                        Icon(
-                            imageVector = Icons.Default.Star,
-                            contentDescription = "Rating",
-                            modifier = Modifier.size(16.dp),
-                            tint = MaterialTheme.colorScheme.primary
-                        )
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text(
-                            text = String.format("%.1f", restaurant.rating),
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurface
-                        )
-                        Text(
-                            text = "  •  ",
-                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
-                        )
-                    }
-                    Text(
-                        text = String.format("%.1f mi", restaurant.distance),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
-                    )
-                    if (restaurant.averagePrice != null) {
-                        Text(
-                            text = "  •  ",
-                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
-                        )
-                        Text(
-                            text = "~\$${String.format("%.0f", restaurant.averagePrice)}",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
-                        )
-                        // Show price confidence label in Flexible mode
-                        if (showPriceConfidence && restaurant.priceConfidenceLabel.isNotEmpty()) {
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Text(
-                                text = restaurant.priceConfidenceLabel,
-                                style = MaterialTheme.typography.labelSmall,
-                                color = when (restaurant.priceSource) {
-                                    com.parthipan.cheapeats.data.PriceSource.API_VERIFIED ->
-                                        androidx.compose.ui.graphics.Color(0xFF4CAF50) // Green
-                                    com.parthipan.cheapeats.data.PriceSource.ESTIMATED ->
-                                        androidx.compose.ui.graphics.Color(0xFFFF9800) // Orange
-                                    else -> MaterialTheme.colorScheme.onSurfaceVariant
-                                }
-                            )
-                        }
-                    }
-                }
-
                 Spacer(modifier = Modifier.height(8.dp))
 
+                // Tags row
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
-                    SuggestionChip(
-                        onClick = { },
-                        label = {
-                            Text(
-                                text = restaurant.cuisine,
-                                style = MaterialTheme.typography.labelSmall
+                    // Open Now indicator
+                    if (restaurant.isOpenNow == true) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(6.dp)
+                                    .background(Color(0xFF4CAF50), shape = CircleShape)
                             )
-                        },
-                        colors = SuggestionChipDefaults.suggestionChipColors(
-                            containerColor = MaterialTheme.colorScheme.secondary.copy(alpha = 0.2f),
-                            labelColor = MaterialTheme.colorScheme.onSurface
-                        ),
-                        border = null
-                    )
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text(
+                                text = "Open",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = Color(0xFF4CAF50)
+                            )
+                        }
+                    }
 
-                    if (restaurant.priceLevel > 0) {
-                        Text(
-                            text = restaurant.pricePoint,
-                            style = MaterialTheme.typography.bodyMedium,
-                            fontWeight = FontWeight.Medium,
-                            color = MaterialTheme.colorScheme.primary
+                    if (restaurant.nearTTC) {
+                        SuggestionChip(
+                            onClick = { },
+                            label = {
+                                Text(
+                                    text = "TTC",
+                                    style = MaterialTheme.typography.labelSmall
+                                )
+                            },
+                            colors = SuggestionChipDefaults.suggestionChipColors(
+                                containerColor = Color(0xFFDA291C).copy(alpha = 0.1f),
+                                labelColor = Color(0xFFDA291C)
+                            ),
+                            border = null
                         )
                     }
 
@@ -1088,23 +1485,6 @@ fun RestaurantCard(
                             colors = SuggestionChipDefaults.suggestionChipColors(
                                 containerColor = MaterialTheme.colorScheme.tertiary.copy(alpha = 0.2f),
                                 labelColor = MaterialTheme.colorScheme.tertiary
-                            ),
-                            border = null
-                        )
-                    }
-
-                    if (restaurant.nearTTC) {
-                        SuggestionChip(
-                            onClick = { },
-                            label = {
-                                Text(
-                                    text = "TTC",
-                                    style = MaterialTheme.typography.labelSmall
-                                )
-                            },
-                            colors = SuggestionChipDefaults.suggestionChipColors(
-                                containerColor = MaterialTheme.colorScheme.error.copy(alpha = 0.1f),
-                                labelColor = MaterialTheme.colorScheme.error
                             ),
                             border = null
                         )
