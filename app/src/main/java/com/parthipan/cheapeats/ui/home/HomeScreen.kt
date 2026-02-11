@@ -117,6 +117,7 @@ import com.parthipan.cheapeats.data.TransitHelper
 import com.parthipan.cheapeats.data.VertexAiService
 import com.parthipan.cheapeats.data.sampleRestaurants
 import com.parthipan.cheapeats.ui.components.ShimmerRestaurantList
+import com.parthipan.cheapeats.data.menu.MenuRepository
 import com.parthipan.cheapeats.ui.detail.RestaurantDetailScreen
 import com.parthipan.cheapeats.ui.filter.FilterBar
 import com.parthipan.cheapeats.ui.filter.FilterViewModel
@@ -127,6 +128,12 @@ import com.parthipan.cheapeats.ui.theme.CheapEatsTheme
 import android.content.Intent
 import android.net.Uri
 import androidx.compose.material.icons.filled.Settings
+import com.google.android.play.core.appupdate.AppUpdateManagerFactory
+import com.google.android.play.core.appupdate.AppUpdateOptions
+import com.google.android.play.core.install.InstallStateUpdatedListener
+import com.google.android.play.core.install.model.AppUpdateType
+import com.google.android.play.core.install.model.InstallStatus
+import com.google.android.play.core.install.model.UpdateAvailability
 import com.parthipan.cheapeats.data.database.AppDatabase
 import com.parthipan.cheapeats.data.lunchroute.RouteStart
 import com.parthipan.cheapeats.data.settings.CacheStats
@@ -156,6 +163,7 @@ fun HomeScreen(
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
+    val menuRepository = remember { MenuRepository(context) }
 
     // First-time user tip
     var showFirstTimeTip by remember { mutableStateOf(false) }
@@ -207,6 +215,23 @@ fun HomeScreen(
     val billingService = remember { BillingService(context) }
     val tipProducts by billingService.tipProducts.collectAsState()
     val purchaseState by billingService.purchaseState.collectAsState()
+
+    // App Update manager
+    val appUpdateManager = remember { AppUpdateManagerFactory.create(context) }
+
+    // Listen for install state changes (flexible update download progress)
+    DisposableEffect(appUpdateManager) {
+        val listener = InstallStateUpdatedListener { state ->
+            if (state.installStatus() == InstallStatus.DOWNLOADED) {
+                scope.launch {
+                    snackbarHostState.showSnackbar("Update ready! Restarting...")
+                    appUpdateManager.completeUpdate()
+                }
+            }
+        }
+        appUpdateManager.registerListener(listener)
+        onDispose { appUpdateManager.unregisterListener(listener) }
+    }
 
     // Favorites manager
     val favoritesManager = remember { FavoritesManager(context) }
@@ -414,9 +439,13 @@ fun HomeScreen(
         label = "screen_transition"
     ) { restaurant ->
         if (restaurant != null) {
+            val menu = remember(restaurant.id) {
+                menuRepository.findMenu(restaurant.name, restaurant.address)
+            }
             RestaurantDetailScreen(
                 restaurant = restaurant,
-                onBackClick = { selectedRestaurant = null }
+                onBackClick = { selectedRestaurant = null },
+                menu = menu
             )
         } else {
             Scaffold(
@@ -849,6 +878,32 @@ fun HomeScreen(
                     // Clear cached restaurants
                     database.cacheDao().clearAllCache()
                     snackbarHostState.showSnackbar("Cache cleared")
+                }
+            },
+            onCheckForUpdate = {
+                val activity = context as? Activity ?: return@SettingsBottomSheet
+                appUpdateManager.appUpdateInfo.addOnSuccessListener { appUpdateInfo ->
+                    if (appUpdateInfo.updateAvailability() == UpdateAvailability.UPDATE_AVAILABLE
+                        && appUpdateInfo.isUpdateTypeAllowed(AppUpdateType.FLEXIBLE)
+                    ) {
+                        scope.launch {
+                            snackbarHostState.showSnackbar("Downloading update...")
+                        }
+                        appUpdateManager.startUpdateFlowForResult(
+                            appUpdateInfo,
+                            activity,
+                            AppUpdateOptions.newBuilder(AppUpdateType.FLEXIBLE).build(),
+                            1001
+                        )
+                    } else {
+                        scope.launch {
+                            snackbarHostState.showSnackbar("App is already up to date")
+                        }
+                    }
+                }.addOnFailureListener {
+                    scope.launch {
+                        snackbarHostState.showSnackbar("Couldn't check for updates")
+                    }
                 }
             },
             onDismiss = { showSettings = false }

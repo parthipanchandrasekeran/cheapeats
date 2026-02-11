@@ -59,6 +59,8 @@ import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import com.parthipan.cheapeats.data.DataFreshness
 import com.parthipan.cheapeats.data.Restaurant
+import com.parthipan.cheapeats.data.menu.MenuCategory
+import com.parthipan.cheapeats.data.menu.RestaurantMenu
 
 private val HeroExpandedHeight = 220.dp
 private val HeroCollapsedHeight = 56.dp
@@ -67,7 +69,8 @@ private val HeroCollapsedHeight = 56.dp
 @Composable
 fun RestaurantDetailScreen(
     restaurant: Restaurant,
-    onBackClick: () -> Unit
+    onBackClick: () -> Unit,
+    menu: RestaurantMenu? = null
 ) {
     val scrollState = rememberScrollState()
     val density = LocalDensity.current
@@ -342,6 +345,12 @@ fun RestaurantDetailScreen(
 
             // Price information section
             RestaurantPriceSection(restaurant = restaurant)
+
+            // Inline menu section (if menu data available)
+            if (menu != null) {
+                Spacer(modifier = Modifier.height(8.dp))
+                MenuSection(categories = menu.categories)
+            }
 
             Spacer(modifier = Modifier.height(8.dp))
 
@@ -672,6 +681,94 @@ private fun RestaurantActionButtons(restaurant: Restaurant) {
                 imageVector = Icons.Default.Share,
                 contentDescription = "Share",
                 tint = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+    }
+}
+
+@Composable
+private fun MenuSection(categories: List<MenuCategory>) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        Text(
+            text = "Menu",
+            style = MaterialTheme.typography.titleLarge,
+            fontWeight = FontWeight.Bold
+        )
+        categories.forEach { category ->
+            MenuCategoryCard(category = category)
+        }
+    }
+}
+
+@Composable
+private fun MenuCategoryCard(category: MenuCategory) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surface
+        ),
+        shape = MaterialTheme.shapes.medium
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Text(
+                text = category.name,
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.primary
+            )
+            if (category.note != null) {
+                Text(
+                    text = category.note,
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            category.items.forEach { item ->
+                MenuItemRow(item = item)
+            }
+        }
+    }
+}
+
+@Composable
+private fun MenuItemRow(item: com.parthipan.cheapeats.data.menu.MenuItem) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = item.name,
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = FontWeight.Medium
+            )
+            if (item.description.isNotBlank()) {
+                Text(
+                    text = item.description,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+        }
+        if (item.price.isNotBlank()) {
+            Spacer(modifier = Modifier.width(12.dp))
+            Text(
+                text = item.price,
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.primary
             )
         }
     }

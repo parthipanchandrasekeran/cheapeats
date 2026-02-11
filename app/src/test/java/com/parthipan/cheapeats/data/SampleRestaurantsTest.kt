@@ -16,8 +16,8 @@ class SampleRestaurantsTest {
     }
 
     @Test
-    fun `sampleRestaurants has 8 restaurants`() {
-        assertEquals(8, sampleRestaurants.size)
+    fun `sampleRestaurants has 12 restaurants`() {
+        assertEquals(12, sampleRestaurants.size)
     }
 
     @Test
@@ -36,72 +36,67 @@ class SampleRestaurantsTest {
     // ==================== Restaurant Content Tests ====================
 
     @Test
-    fun `sampleRestaurants contains Taco Paradise`() {
-        val tacoParadise = sampleRestaurants.find { it.name == "Taco Paradise" }
-        assertNotNull(tacoParadise)
-        assertEquals("Mexican", tacoParadise!!.cuisine)
-        assertEquals(1, tacoParadise.priceLevel)
-        assertTrue(tacoParadise.isSponsored)
+    fun `sampleRestaurants contains Banh Mi Nguyen Huong`() {
+        val restaurant = sampleRestaurants.find { it.name == "Banh Mi Nguyen Huong" }
+        assertNotNull(restaurant)
+        assertEquals("Vietnamese", restaurant!!.cuisine)
+        assertEquals(1, restaurant.priceLevel)
     }
 
     @Test
-    fun `sampleRestaurants contains Pasta House`() {
-        val pastaHouse = sampleRestaurants.find { it.name == "Pasta House" }
-        assertNotNull(pastaHouse)
-        assertEquals("Italian", pastaHouse!!.cuisine)
-        assertEquals(2, pastaHouse.priceLevel)
-        assertFalse(pastaHouse.isSponsored)
+    fun `sampleRestaurants contains Juicy Dumpling`() {
+        val restaurant = sampleRestaurants.find { it.name == "Juicy Dumpling" }
+        assertNotNull(restaurant)
+        assertEquals("Chinese", restaurant!!.cuisine)
+        assertEquals(1, restaurant.priceLevel)
     }
 
     @Test
-    fun `sampleRestaurants contains Golden Dragon`() {
-        val goldenDragon = sampleRestaurants.find { it.name == "Golden Dragon" }
-        assertNotNull(goldenDragon)
-        assertEquals("Chinese", goldenDragon!!.cuisine)
-        assertTrue(goldenDragon.isSponsored)
-        assertTrue(goldenDragon.hasStudentDiscount)
+    fun `sampleRestaurants contains Mom's Pan Fried Bun`() {
+        val restaurant = sampleRestaurants.find { it.name == "Mom's Pan Fried Bun" }
+        assertNotNull(restaurant)
+        assertEquals("Chinese", restaurant!!.cuisine)
+        assertTrue(restaurant.hasStudentDiscount)
     }
 
     @Test
-    fun `sampleRestaurants contains Burger Barn`() {
-        val burgerBarn = sampleRestaurants.find { it.name == "Burger Barn" }
-        assertNotNull(burgerBarn)
-        assertEquals("American", burgerBarn!!.cuisine)
-        assertTrue(burgerBarn.hasStudentDiscount)
-        assertTrue(burgerBarn.nearTTC)
+    fun `sampleRestaurants contains Salad King`() {
+        val restaurant = sampleRestaurants.find { it.name == "Salad King" }
+        assertNotNull(restaurant)
+        assertEquals("Thai", restaurant!!.cuisine)
+        assertTrue(restaurant.hasStudentDiscount)
     }
 
     @Test
-    fun `sampleRestaurants contains Sushi Zen`() {
-        val sushiZen = sampleRestaurants.find { it.name == "Sushi Zen" }
-        assertNotNull(sushiZen)
-        assertEquals("Japanese", sushiZen!!.cuisine)
-        assertEquals(2, sushiZen.priceLevel)
+    fun `sampleRestaurants contains Jin Dal Lae`() {
+        val restaurant = sampleRestaurants.find { it.name == "Jin Dal Lae" }
+        assertNotNull(restaurant)
+        assertEquals("Korean", restaurant!!.cuisine)
+        assertTrue(restaurant.nearTTC)
     }
 
     @Test
-    fun `sampleRestaurants contains Curry Corner`() {
-        val curryCorner = sampleRestaurants.find { it.name == "Curry Corner" }
-        assertNotNull(curryCorner)
-        assertEquals("Indian", curryCorner!!.cuisine)
-        assertTrue(curryCorner.hasStudentDiscount)
+    fun `sampleRestaurants contains Ghazale`() {
+        val restaurant = sampleRestaurants.find { it.name == "Ghazale" }
+        assertNotNull(restaurant)
+        assertEquals("Lebanese/Middle Eastern", restaurant!!.cuisine)
+        assertTrue(restaurant.hasStudentDiscount)
     }
 
     @Test
-    fun `sampleRestaurants contains Mediterranean Grill`() {
-        val medGrill = sampleRestaurants.find { it.name == "Mediterranean Grill" }
-        assertNotNull(medGrill)
-        assertEquals("Mediterranean", medGrill!!.cuisine)
-        assertTrue(medGrill.isSponsored)
+    fun `sampleRestaurants contains Pho Hung`() {
+        val restaurant = sampleRestaurants.find { it.name == "Pho Hung" }
+        assertNotNull(restaurant)
+        assertEquals("Vietnamese", restaurant!!.cuisine)
+        assertTrue(restaurant.nearTTC)
     }
 
     @Test
-    fun `sampleRestaurants contains Pho Express`() {
-        val phoExpress = sampleRestaurants.find { it.name == "Pho Express" }
-        assertNotNull(phoExpress)
-        assertEquals("Vietnamese", phoExpress!!.cuisine)
-        assertTrue(phoExpress.hasStudentDiscount)
-        assertTrue(phoExpress.nearTTC)
+    fun `sampleRestaurants contains Udupi Palace`() {
+        val restaurant = sampleRestaurants.find { it.name == "Udupi Palace" }
+        assertNotNull(restaurant)
+        assertEquals("South Indian Vegetarian", restaurant!!.cuisine)
+        assertTrue(restaurant.hasStudentDiscount)
     }
 
     // ==================== Location Tests ====================
@@ -122,13 +117,13 @@ class SampleRestaurantsTest {
     }
 
     @Test
-    fun `restaurants are centered around York Mills area`() {
-        // York Mills is approximately at 43.7615, -79.3456
+    fun `restaurants are centered around downtown Toronto`() {
+        // Downtown Toronto is approximately at 43.66, -79.39
         val avgLatitude = sampleRestaurants.map { it.latitude }.average()
         val avgLongitude = sampleRestaurants.map { it.longitude }.average()
 
-        assertEquals(43.76, avgLatitude, 0.02)
-        assertEquals(-79.35, avgLongitude, 0.02)
+        assertEquals(43.67, avgLatitude, 0.05)
+        assertEquals(-79.38, avgLongitude, 0.05)
     }
 
     // ==================== Price Level Tests ====================
@@ -144,15 +139,9 @@ class SampleRestaurantsTest {
     }
 
     @Test
-    fun `some restaurants have price level 1`() {
+    fun `most restaurants have price level 1`() {
         val cheapRestaurants = sampleRestaurants.filter { it.priceLevel == 1 }
-        assertTrue(cheapRestaurants.isNotEmpty())
-    }
-
-    @Test
-    fun `some restaurants have price level 2`() {
-        val moderateRestaurants = sampleRestaurants.filter { it.priceLevel == 2 }
-        assertTrue(moderateRestaurants.isNotEmpty())
+        assertTrue(cheapRestaurants.size >= 8)
     }
 
     // ==================== Rating Tests ====================
@@ -203,7 +192,7 @@ class SampleRestaurantsTest {
     fun `some restaurants have student discount`() {
         val withDiscount = sampleRestaurants.filter { it.hasStudentDiscount }
         assertTrue(withDiscount.isNotEmpty())
-        assertTrue(withDiscount.size >= 3) // At least a few should have discounts
+        assertTrue(withDiscount.size >= 3)
     }
 
     @Test
@@ -211,13 +200,6 @@ class SampleRestaurantsTest {
         val nearTTC = sampleRestaurants.filter { it.nearTTC }
         assertTrue(nearTTC.isNotEmpty())
         assertTrue(nearTTC.size >= 3)
-    }
-
-    @Test
-    fun `some restaurants are sponsored`() {
-        val sponsored = sampleRestaurants.filter { it.isSponsored }
-        assertTrue(sponsored.isNotEmpty())
-        assertTrue(sponsored.size >= 2)
     }
 
     @Test
@@ -243,7 +225,7 @@ class SampleRestaurantsTest {
         sampleRestaurants.forEach { restaurant ->
             assertTrue(
                 "Restaurant ${restaurant.name} has unrealistic price ${restaurant.averagePrice}",
-                restaurant.averagePrice!! in 5f..50f
+                restaurant.averagePrice!! in 1f..50f
             )
         }
     }
@@ -262,11 +244,10 @@ class SampleRestaurantsTest {
     @Test
     fun `cuisines include common types`() {
         val cuisines = sampleRestaurants.map { it.cuisine }.toSet()
-        assertTrue(cuisines.contains("Mexican"))
-        assertTrue(cuisines.contains("Italian"))
+        assertTrue(cuisines.contains("Vietnamese"))
         assertTrue(cuisines.contains("Chinese"))
-        assertTrue(cuisines.contains("Japanese"))
-        assertTrue(cuisines.contains("Indian"))
+        assertTrue(cuisines.contains("Thai"))
+        assertTrue(cuisines.contains("Korean"))
     }
 
     // ==================== Address Tests ====================
@@ -282,13 +263,14 @@ class SampleRestaurantsTest {
     }
 
     @Test
-    fun `addresses contain York Mills`() {
-        val yorkMillsAddresses = sampleRestaurants.count {
-            it.address.contains("York Mills", ignoreCase = true)
+    fun `addresses contain Toronto`() {
+        val torontoAddresses = sampleRestaurants.count {
+            it.address.contains("Toronto", ignoreCase = true) ||
+                it.address.contains("Scarborough", ignoreCase = true)
         }
         assertTrue(
-            "Expected most addresses to contain York Mills",
-            yorkMillsAddresses >= 5
+            "Expected most addresses to contain Toronto or Scarborough",
+            torontoAddresses >= 8
         )
     }
 }

@@ -28,8 +28,8 @@ android {
         applicationId = "com.parthipan.cheapeats"
         minSdk = 24
         targetSdk = 36
-        versionCode = 3
-        versionName = "1.4.0"
+        versionCode = 6
+        versionName = "1.6.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
@@ -117,6 +117,8 @@ dependencies {
     ksp(libs.room.compiler)
     implementation(libs.billing)
     implementation(libs.coil.compose)
+    implementation(libs.app.update)
+    implementation(libs.app.update.ktx)
     testImplementation(libs.junit)
     testImplementation(libs.mockito.core)
     testImplementation(libs.mockito.kotlin)

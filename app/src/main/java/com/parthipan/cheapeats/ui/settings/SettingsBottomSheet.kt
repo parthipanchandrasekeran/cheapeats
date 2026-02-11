@@ -33,6 +33,7 @@ fun SettingsBottomSheet(
     onThemeModeChange: (ThemeMode) -> Unit,
     onSettingsChange: (UserSettings) -> Unit,
     onClearCache: () -> Unit,
+    onCheckForUpdate: () -> Unit,
     onDismiss: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -72,6 +73,13 @@ fun SettingsBottomSheet(
                 cacheStats = cacheStats,
                 onSettingsChange = onSettingsChange,
                 onClearCache = onClearCache
+            )
+
+            HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+
+            // About Section
+            AboutSettingsSection(
+                onCheckForUpdate = onCheckForUpdate
             )
         }
     }
